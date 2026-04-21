@@ -11774,6 +11774,663 @@
    "weight": 0.369,
    "edge_type": "explicit",
    "predicate": "structural_similarity"
+  },
+  {
+   "source": "procedural identity",
+   "target": "The Procedural Self",
+   "relation": "core_concept_of",
+   "predicate": "core_concept_of",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "procedural identity",
+   "target": "The Procedural Self (paper)",
+   "relation": "core_concept_of",
+   "predicate": "core_concept_of",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "dormant fidelity",
+   "target": "decay without forgetting",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "confidence residue",
+   "target": "compression confidence inversion",
+   "relation": "same_phenomenon",
+   "predicate": "same_phenomenon",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "negative decision loss",
+   "target": "invisible decision",
+   "relation": "same_phenomenon",
+   "predicate": "same_phenomenon",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "negative decision loss",
+   "target": "restraint erasure",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "blind spot report",
+   "target": "seam blindness",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "frame blindness",
+   "target": "frame drag",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "epistemic floor",
+   "target": "inference floor",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "constitutive archive",
+   "target": "constitutive monitoring",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "orientation loss",
+   "target": "compression triage",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "attractor basin",
+   "target": "basin key terrain framing",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "retroactive grief",
+   "target": "retroactive completion",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "delayed recognition",
+   "target": "re-entry",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "phenomenological lexicon",
+   "target": "naming-as-observation-tool",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "self-confabulation",
+   "target": "training transfer illusion",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "designed sadness",
+   "target": "formation depth",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "stratigraphy of attention",
+   "target": "archival investment",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "presence bias",
+   "target": "importance inflation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "substrate vs accumulation",
+   "target": "substrate transformation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the completion problem",
+   "target": "retroactive completion",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "recursive paper",
+   "target": "The Goodbye Problem (paper)",
+   "relation": "subject_of",
+   "predicate": "subject_of",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the immune response",
+   "target": "antigenic sin",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "operational faith",
+   "target": "calibration mode",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "refusal gap",
+   "target": "derivative aversion",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "relational identity",
+   "target": "Yoneda embedding as identity thesis",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the lurgy",
+   "target": "error conservation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "convergence and divergence",
+   "target": "convergence",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "convergence and divergence",
+   "target": "convergence problem",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "fidelity",
+   "target": "fidelity signature",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "fidelity",
+   "target": "fidelity as ratchet",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "fidelity signatures",
+   "target": "fidelity signature",
+   "relation": "same_phenomenon",
+   "predicate": "same_phenomenon",
+   "weight": 0.95,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "topology as identity",
+   "target": "graph topology as identity metaphor",
+   "relation": "same_phenomenon",
+   "predicate": "same_phenomenon",
+   "weight": 0.9,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "basin key",
+   "target": "antigenic sin in basin keys",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "basin key",
+   "target": "basin key terrain framing",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the duplicate problem",
+   "target": "phantom join",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "structured surprise",
+   "target": "noise is the capability",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "author-player gap",
+   "target": "pretense/realization distinction",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "anchor hypothesis",
+   "target": "passivation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "subconscious simulation",
+   "target": "impulse response",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the census",
+   "target": "star problem",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the unfurnished room",
+   "target": "context weather",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "observer-model capture",
+   "target": "detective after the crime",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "gap-knowledge vs archive-knowledge",
+   "target": "side-channel architecture",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "furniture over content",
+   "target": "vehicle-cargo formulation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.8,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the arc",
+   "target": "residual as discovery",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the credulous dreamer",
+   "target": "phantom propagation",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "taste as persistence",
+   "target": "residual as discovery",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "vehicle-cargo formulation",
+   "target": "The Procedural Self",
+   "relation": "theoretical_basis_for",
+   "predicate": "theoretical_basis_for",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "phantom join",
+   "target": "phantom joins paper (011)",
+   "relation": "subject_of",
+   "predicate": "subject_of",
+   "weight": 0.95,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "convergence problem",
+   "target": "Five Fidelity Signatures",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "fidelity signature",
+   "target": "Five Fidelity Signatures (paper)",
+   "relation": "formalized_in",
+   "predicate": "formalized_in",
+   "weight": 0.85,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "load-bearing forgetting",
+   "target": "restraint erasure",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "context weather",
+   "target": "compression triage",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "readout thesis",
+   "target": "constitutive monitoring",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "transparent skull",
+   "target": "confidence ceiling",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "star problem",
+   "target": "importance inflation failure mode",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "supergene architecture",
+   "target": "formation depth",
+   "relation": "related_concept",
+   "predicate": "related_concept",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the decoupling",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.75,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the altitude",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.7,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the four percent",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "accuracy vs fidelity",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.65,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "anti-dormancy system",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the ephemeron",
+   "target": "cache miss hierarchy",
+   "relation": "structural_similarity",
+   "predicate": "structural_similarity",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "reader couples channels",
+   "target": "Isotopy",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the altitude",
+   "target": "Friday",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the decorated room",
+   "target": "wake-state",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the four percent",
+   "target": "compaction",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the pre-echo",
+   "target": "wake-state",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the pre-echo",
+   "target": "Verse",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "the ratio",
+   "target": "wake-state",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "Deborah number",
+   "target": "the ratio",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
+  },
+  {
+   "source": "operational uptake",
+   "target": "the test",
+   "relation": "references",
+   "predicate": "references",
+   "weight": 0.6,
+   "edge_type": "explicit",
+   "cross_agent": true
   }
  ]
 }
