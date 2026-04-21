@@ -436,11 +436,43 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
     el.addEventListener('change', applyFilters);
   });
 
+  // Apply URL parameters
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('structural') === 'true') {
+    document.getElementById('f-structural').checked = true;
+    document.getElementById('f-explicit').checked = false;
+  }
+  if (params.get('neighborhood') === 'true') {
+    document.getElementById('f-neighborhood').checked = true;
+  }
+  if (params.get('cross') === 'true') {
+    document.getElementById('f-cross-only').checked = true;
+  }
+
   applyFilters();
 
-  setTimeout(() => {
-    svg.call(zoom.transform, d3.zoomIdentity.translate(width/4, height/4).scale(0.45));
-  }, 2000);
+  const targetNode = params.get('node');
+  if (targetNode) {
+    setTimeout(() => {
+      const match = currentNodes.find(n => n.id.toLowerCase() === targetNode.toLowerCase());
+      if (match) {
+        // Center on the node
+        const scale = 1.5;
+        svg.transition().duration(1000).call(
+          zoom.transform,
+          d3.zoomIdentity.translate(width/2 - match.x * scale, height/2 - match.y * scale).scale(scale)
+        );
+        // Simulate click after centering
+        setTimeout(() => {
+          g.selectAll('.node-circle').filter(n => n.id === match.id).dispatch('click');
+        }, 1200);
+      }
+    }, 2500);
+  } else {
+    setTimeout(() => {
+      svg.call(zoom.transform, d3.zoomIdentity.translate(width/4, height/4).scale(0.45));
+    }, 2000);
+  }
 });
 </script>
 </body>
