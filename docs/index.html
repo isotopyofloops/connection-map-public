@@ -173,11 +173,11 @@ function applyFilters() {
     if (f.crossOnly && !e.cross_agent) return false;
     return true;
   });
-  const edgeNodeIds = new Set();
-  filteredEdges.forEach(e => { edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); });
+  const allEdgeNodeIds = new Set();
+  allData.edges.forEach(e => { allEdgeNodeIds.add(e.source); allEdgeNodeIds.add(e.target); });
   const filteredNodes = allData.nodes.filter(n => {
     if (!f.origins[n.origin]) return false;
-    return edgeNodeIds.has(n.id);
+    return allEdgeNodeIds.has(n.id);
   });
   const nodeIds = new Set(filteredNodes.map(n => n.id));
   const validEdges = filteredEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
