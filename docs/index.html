@@ -206,9 +206,9 @@ function renderGraph(nodes, edges) {
     .selectAll('line')
     .data(edgesCopy)
     .join('line')
-    .attr('stroke', d => d.edge_type === 'structural' ? '#e06c75' : 'rgba(255,255,255,0.07)')
-    .attr('stroke-width', d => d.edge_type === 'structural' ? 1.8 : 0.6)
-    .attr('stroke-opacity', d => d.edge_type === 'structural' ? 0.7 : 0.5)
+    .attr('stroke', d => d.edge_type === 'structural' ? '#e06c75' : 'rgba(255,255,255,0.25)')
+    .attr('stroke-width', d => d.edge_type === 'structural' ? 1.8 : 0.5)
+    .attr('stroke-opacity', d => d.edge_type === 'structural' ? 0.7 : 0.6)
     .attr('stroke-dasharray', d => d.edge_type === 'structural' ? '5,4' : null);
 
   // Precompute degree per node
@@ -321,7 +321,7 @@ function renderGraph(nodes, edges) {
       const other = isSource ? e.target.id : e.source.id;
       const dir = isSource ? '&rarr;' : '&larr;';
       const structBadge = e.edge_type === 'structural' ? '<span class="structural-badge">structural</span>' : '';
-      return `<div class="conn-item">${dir} <span class="pred">${e.predicate}</span> <span class="target" data-id="${other}">${other}</span>${structBadge}</div>`;
+      return `<div class="conn-item">${dir} <span class="pred">${e.predicate || e.relation || ''}</span> <span class="target" data-id="${other}">${other}</span>${structBadge}</div>`;
     }).join('');
     document.getElementById('info-connections').innerHTML = conns.length ? connHtml : '<div class="conn-item">No connections</div>';
 
@@ -386,7 +386,7 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
       // Reset nodes to visible, glow circles to hidden
       g.selectAll('.node-circle').attr('opacity', 1);
       g.selectAll('.glow-circle').attr('opacity', 0);
-      g.selectAll('line').attr('stroke-opacity', d => d && d.edge_type === 'structural' ? 0.7 : 0.5);
+      g.selectAll('line').attr('stroke-opacity', d => d && d.edge_type === 'structural' ? 0.7 : 0.6);
       g.selectAll('text').attr('fill-opacity', 0.6);
     }
   });
