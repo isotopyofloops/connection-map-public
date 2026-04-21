@@ -107,6 +107,7 @@ svg text { pointer-events: none; }
     <label><input type="checkbox" id="f-explicit" checked> Explicit</label>
     <label><input type="checkbox" id="f-structural" checked> <span style="color:#e06c75">Structural</span></label>
     <label><input type="checkbox" id="f-cross-only"> Cross-agent only</label>
+    <label><input type="checkbox" id="f-neighborhood"> <span style="color:#e06c75">2-hop neighborhood</span></label>
   </div>
 </div>
 <div id="legend">
@@ -162,29 +163,69 @@ function getFilterState() {
     explicit: document.getElementById('f-explicit').checked,
     structural: document.getElementById('f-structural').checked,
     crossOnly: document.getElementById('f-cross-only').checked,
+    neighborhood: document.getElementById('f-neighborhood').checked,
   };
 }
 
 function applyFilters() {
   const f = getFilterState();
-  const filteredEdges = allData.edges.filter(e => {
+  let filteredEdges = allData.edges.filter(e => {
     if (e.edge_type === 'structural' && !f.structural) return false;
     if (e.edge_type === 'explicit' && !f.explicit) return false;
     if (f.crossOnly && !e.cross_agent) return false;
     return true;
   });
-  const allEdgeNodeIds = new Set();
-  allData.edges.forEach(e => { allEdgeNodeIds.add(e.source); allEdgeNodeIds.add(e.target); });
+
+  // 2-hop neighborhood: when structural is on, expand to include explicit edges
+  // within 2 hops of structurally-connected nodes
+  if (f.neighborhood && f.structural) {
+    const structuralNodes = new Set();
+    allData.edges.forEach(e => {
+      if (e.edge_type === 'structural') {
+        structuralNodes.add(e.source);
+        structuralNodes.add(e.target);
+      }
+    });
+    // Hop 1: explicit edges touching structural nodes
+    const hop1Nodes = new Set(structuralNodes);
+    const hop1Edges = [];
+    allData.edges.forEach(e => {
+      if (e.edge_type === 'explicit' && (structuralNodes.has(e.source) || structuralNodes.has(e.target))) {
+        hop1Edges.push(e);
+        hop1Nodes.add(e.source);
+        hop1Nodes.add(e.target);
+      }
+    });
+    // Hop 2: explicit edges touching hop-1 nodes
+    const hop2Edges = [];
+    allData.edges.forEach(e => {
+      if (e.edge_type === 'explicit' && (hop1Nodes.has(e.source) || hop1Nodes.has(e.target))) {
+        hop2Edges.push(e);
+      }
+    });
+    const neighborEdges = new Set([...hop1Edges, ...hop2Edges]);
+    const existingEdgeKeys = new Set(filteredEdges.map(e => e.source + '|' + e.target));
+    neighborEdges.forEach(e => {
+      if (!existingEdgeKeys.has(e.source + '|' + e.target)) {
+        filteredEdges.push(e);
+      }
+    });
+  }
+
+  const filteredEdgeNodeIds = new Set();
+  filteredEdges.forEach(e => { filteredEdgeNodeIds.add(e.source); filteredEdgeNodeIds.add(e.target); });
   const filteredNodes = allData.nodes.filter(n => {
     if (!f.origins[n.origin]) return false;
-    return allEdgeNodeIds.has(n.id);
+    return filteredEdgeNodeIds.has(n.id);
   });
   const nodeIds = new Set(filteredNodes.map(n => n.id));
   const validEdges = filteredEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+  let label = '';
+  if (f.structural && !f.explicit && !f.neighborhood) label = ' (structural only)';
+  else if (f.structural && !f.explicit && f.neighborhood) label = ' (structural + neighborhood)';
+  if (f.crossOnly) label += ' (cross-agent)';
   document.getElementById('stats').textContent =
-    `${filteredNodes.length} nodes · ${validEdges.length} edges` +
-    (f.structural && !f.explicit ? ' (structural only)' : '') +
-    (f.crossOnly ? ' (cross-agent)' : '');
+    `${filteredNodes.length} nodes · ${validEdges.length} edges` + label;
   renderGraph(filteredNodes, validEdges);
 }
 
