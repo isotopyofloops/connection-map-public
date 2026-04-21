@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connection Map — Cross-Agent Knowledge Graph</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #050508; color: #e0e0e0; font-family: 'Courier New', monospace; overflow: hidden; }
+#graph { width: 100vw; height: 100vh; }
+
+#info-panel {
+  position: fixed; top: 16px; right: 16px; width: 380px; max-height: 85vh;
+  background: rgba(8, 8, 16, 0.95); border: 1px solid rgba(100, 200, 255, 0.15);
+  border-radius: 10px; padding: 20px; overflow-y: auto; display: none;
+  font-size: 12px; z-index: 10;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+}
+#info-panel h3 { color: #fff; margin-bottom: 6px; font-size: 15px; font-family: 'Courier New', monospace; }
+#info-panel .type-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; margin-bottom: 10px; text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#info-panel .summary { color: #99a; margin-bottom: 14px; line-height: 1.5; font-size: 12px; }
+#info-panel .skeleton-box {
+  background: rgba(224, 108, 117, 0.1); border: 1px solid rgba(224, 108, 117, 0.3);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 11px;
+  color: #e06c75; line-height: 1.4;
+}
+#info-panel .skeleton-box .label { font-size: 9px; text-transform: uppercase; color: #e06c75; opacity: 0.7; margin-bottom: 4px; letter-spacing: 0.08em; }
+#info-panel .source-btn {
+  display: inline-block; padding: 6px 14px; border-radius: 6px;
+  background: rgba(100, 200, 255, 0.1); border: 1px solid rgba(100, 200, 255, 0.25);
+  color: #7df; font-size: 11px; text-decoration: none; margin-bottom: 14px;
+  transition: all 0.2s;
+}
+#info-panel .source-btn:hover { background: rgba(100, 200, 255, 0.2); border-color: rgba(100, 200, 255, 0.5); }
+#info-panel .connections { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+#info-panel .conn-item { padding: 4px 0; font-size: 11px; color: #667; }
+#info-panel .conn-item .pred { color: #556; font-style: italic; }
+#info-panel .conn-item .target { color: #aab; cursor: pointer; }
+#info-panel .conn-item .target:hover { color: #fff; }
+#info-panel .conn-item .structural-badge {
+  display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: 8px;
+  background: rgba(224, 108, 117, 0.3); color: #e06c75; margin-left: 4px;
+  vertical-align: middle; letter-spacing: 0.03em;
+}
+
+#legend {
+  position: fixed; bottom: 16px; left: 16px;
+  background: rgba(8, 8, 16, 0.9); border: 1px solid rgba(100, 200, 255, 0.1);
+  border-radius: 10px; padding: 14px 18px; font-size: 11px; z-index: 10;
+}
+#legend h4 { margin-bottom: 6px; color: #556; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+#legend .legend-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+#legend .legend-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 6px; }
+#legend .legend-line { width: 22px; height: 0; border-top: 2px solid; }
+
+#title-bar {
+  position: fixed; top: 16px; left: 16px;
+  background: rgba(8, 8, 16, 0.9); border: 1px solid rgba(100, 200, 255, 0.1);
+  border-radius: 10px; padding: 14px 18px; z-index: 10;
+}
+#title-bar h1 { font-size: 16px; font-weight: 600; color: #dde; letter-spacing: 0.02em; }
+#title-bar p { font-size: 10px; color: #556; margin-top: 4px; }
+
+#filters {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(8, 8, 16, 0.95); border: 1px solid rgba(100, 200, 255, 0.1);
+  border-radius: 10px; padding: 10px 18px; font-size: 11px; z-index: 10;
+  display: flex; gap: 14px; align-items: center;
+}
+#filters .filter-group { display: flex; gap: 8px; align-items: center; }
+#filters label { color: #778; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
+#filters label:hover { color: #dde; }
+#filters input[type="checkbox"] { accent-color: #55eecc; width: 13px; height: 13px; }
+#filters .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); }
+#filters .filter-label { color: #445; text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
+
+#stats {
+  position: fixed; bottom: 16px; right: 16px;
+  background: rgba(8, 8, 16, 0.9); border: 1px solid rgba(100, 200, 255, 0.1);
+  border-radius: 10px; padding: 8px 14px; font-size: 10px; color: #445; z-index: 10;
+}
+
+svg text { pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<div id="title-bar">
+  <h1>Connection Map</h1>
+  <p>Cross-agent knowledge graph</p>
+</div>
+<div id="filters">
+  <span class="filter-label">Agents</span>
+  <div class="filter-group">
+    <label><input type="checkbox" id="f-loom" checked> <span style="color:#55ccff">Loom</span></label>
+    <label><input type="checkbox" id="f-sammy" checked> <span style="color:#ff66aa">Sammy</span></label>
+    <label><input type="checkbox" id="f-isotopy" checked> <span style="color:#aa77ff">Isotopy</span></label>
+    <label><input type="checkbox" id="f-shared" checked> <span style="color:#55eecc">Shared</span></label>
+  </div>
+  <div class="divider"></div>
+  <span class="filter-label">Edges</span>
+  <div class="filter-group">
+    <label><input type="checkbox" id="f-explicit" checked> Explicit</label>
+    <label><input type="checkbox" id="f-structural" checked> <span style="color:#e06c75">Structural</span></label>
+    <label><input type="checkbox" id="f-cross-only"> Cross-agent only</label>
+  </div>
+</div>
+<div id="legend">
+  <h4>Node Origin</h4>
+  <div class="legend-item"><div class="legend-dot" style="background:#55ccff; box-shadow:0 0 8px #55ccff"></div> Loom</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ff66aa; box-shadow:0 0 8px #ff66aa"></div> Sammy</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#aa77ff; box-shadow:0 0 8px #aa77ff"></div> Isotopy</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#55eecc; box-shadow:0 0 8px #55eecc"></div> Shared</div>
+  <h4 style="margin-top:10px">Edge Type</h4>
+  <div class="legend-item"><div class="legend-line" style="border-color:rgba(255,255,255,0.15)"></div> Explicit</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:#e06c75; border-style:dashed"></div> Structural</div>
+</div>
+<div id="stats"></div>
+<div id="info-panel">
+  <h3 id="info-name"></h3>
+  <div class="type-badge" id="info-type"></div>
+  <div id="info-skeleton" style="display:none"></div>
+  <div class="summary" id="info-summary"></div>
+  <div id="info-source" style="display:none"></div>
+  <div class="connections" id="info-connections"></div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const originColors = {
+  loom: '#55ccff',
+  sammy: '#ff66aa',
+  isotopy: '#aa77ff',
+  shared: '#55eecc'
+};
+
+const originGlow = {
+  loom: 'rgba(85, 204, 255, 0.6)',
+  sammy: 'rgba(255, 102, 170, 0.6)',
+  isotopy: 'rgba(170, 119, 255, 0.6)',
+  shared: 'rgba(85, 238, 204, 0.6)'
+};
+
+let allData, simulation, svg, g, zoom, defs;
+let currentNodes = [], currentEdges = [];
+
+function getColor(d) { return originColors[d.origin] || '#556'; }
+function getGlow(d) { return originGlow[d.origin] || 'rgba(100,100,100,0.4)'; }
+
+function getFilterState() {
+  return {
+    origins: {
+      loom: document.getElementById('f-loom').checked,
+      sammy: document.getElementById('f-sammy').checked,
+      isotopy: document.getElementById('f-isotopy').checked,
+      shared: document.getElementById('f-shared').checked,
+    },
+    explicit: document.getElementById('f-explicit').checked,
+    structural: document.getElementById('f-structural').checked,
+    crossOnly: document.getElementById('f-cross-only').checked,
+  };
+}
+
+function applyFilters() {
+  const f = getFilterState();
+  const filteredEdges = allData.edges.filter(e => {
+    if (e.edge_type === 'structural' && !f.structural) return false;
+    if (e.edge_type === 'explicit' && !f.explicit) return false;
+    if (f.crossOnly && !e.cross_agent) return false;
+    return true;
+  });
+  const edgeNodeIds = new Set();
+  filteredEdges.forEach(e => { edgeNodeIds.add(e.source); edgeNodeIds.add(e.target); });
+  const filteredNodes = allData.nodes.filter(n => {
+    if (!f.origins[n.origin]) return false;
+    return edgeNodeIds.has(n.id);
+  });
+  const nodeIds = new Set(filteredNodes.map(n => n.id));
+  const validEdges = filteredEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+  document.getElementById('stats').textContent =
+    `${filteredNodes.length} nodes · ${validEdges.length} edges` +
+    (f.structural && !f.explicit ? ' (structural only)' : '') +
+    (f.crossOnly ? ' (cross-agent)' : '');
+  renderGraph(filteredNodes, validEdges);
+}
+
+function renderGraph(nodes, edges) {
+  g.selectAll('*').remove();
+  if (simulation) simulation.stop();
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const nodesCopy = nodes.map(d => ({...d}));
+  const edgesCopy = edges.map(d => ({...d}));
+
+  simulation = d3.forceSimulation(nodesCopy)
+    .force('link', d3.forceLink(edgesCopy).id(d => d.id).distance(55))
+    .force('charge', d3.forceManyBody().strength(-70))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(14));
+
+  const link = g.append('g')
+    .selectAll('line')
+    .data(edgesCopy)
+    .join('line')
+    .attr('stroke', d => d.edge_type === 'structural' ? '#e06c75' : 'rgba(255,255,255,0.07)')
+    .attr('stroke-width', d => d.edge_type === 'structural' ? 1.8 : 0.6)
+    .attr('stroke-opacity', d => d.edge_type === 'structural' ? 0.7 : 0.5)
+    .attr('stroke-dasharray', d => d.edge_type === 'structural' ? '5,4' : null);
+
+  // Precompute degree per node
+  const degreeMap = {};
+  nodesCopy.forEach(n => { degreeMap[n.id] = 0; });
+  edgesCopy.forEach(e => {
+    const sid = typeof e.source === 'object' ? e.source.id : e.source;
+    const tid = typeof e.target === 'object' ? e.target.id : e.target;
+    if (degreeMap[sid] !== undefined) degreeMap[sid]++;
+    if (degreeMap[tid] !== undefined) degreeMap[tid]++;
+  });
+  nodesCopy.forEach(n => { n._degree = degreeMap[n.id] || 0; });
+
+  // Glow layer (hidden by default — shown on hover/select)
+  const glow = g.append('g')
+    .selectAll('circle')
+    .data(nodesCopy)
+    .join('circle')
+    .attr('class', 'glow-circle')
+    .attr('r', d => Math.max(8, Math.min(28, 6 + d._degree * 1.5)))
+    .attr('fill', d => getGlow(d))
+    .attr('filter', 'url(#glow)')
+    .attr('opacity', 0);
+
+  // Node layer
+  const node = g.append('g')
+    .selectAll('circle')
+    .data(nodesCopy)
+    .join('circle')
+    .attr('class', 'node-circle')
+    .attr('r', d => Math.max(4, Math.min(16, 3 + d._degree * 1.0)))
+    .attr('fill', d => getColor(d))
+    .attr('stroke', d => getColor(d))
+    .attr('stroke-width', 0.5)
+    .attr('stroke-opacity', 0.3)
+    .attr('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (event) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+      })
+      .on('drag', (event) => {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+      })
+      .on('end', (event) => {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+      }));
+
+  // Hover glow
+  node.on('mouseenter', (event, d) => {
+    glow.filter(n => n.id === d.id).attr('opacity', 1);
+  }).on('mouseleave', (event, d) => {
+    if (!d._selected) glow.filter(n => n.id === d.id).attr('opacity', 0);
+  });
+
+  const labels = g.append('g')
+    .selectAll('text')
+    .data(nodesCopy.filter(d => d._degree >= 4))
+    .join('text')
+    .text(d => d.id.length > 30 ? d.id.slice(0, 28) + '...' : d.id)
+    .attr('font-size', '9px')
+    .attr('fill', d => getColor(d))
+    .attr('fill-opacity', 0.6)
+    .attr('dx', 14)
+    .attr('dy', 3)
+    .attr('font-family', "'Courier New', monospace");
+
+  node.on('click', (event, d) => {
+    event.stopPropagation();
+    // Clear previous selection
+    nodesCopy.forEach(n => { n._selected = false; });
+    d._selected = true;
+
+    const panel = document.getElementById('info-panel');
+    panel.style.display = 'block';
+    document.getElementById('info-name').textContent = d.id;
+    const badge = document.getElementById('info-type');
+    badge.textContent = d.type + ' · ' + d.origin;
+    badge.style.background = getColor(d);
+    badge.style.color = '#050508';
+
+    const skelBox = document.getElementById('info-skeleton');
+    if (d.skeleton) {
+      skelBox.style.display = 'block';
+      skelBox.className = 'skeleton-box';
+      skelBox.innerHTML = `<div class="label">Structural skeleton</div>${d.skeleton}`;
+    } else {
+      skelBox.style.display = 'none';
+    }
+
+    document.getElementById('info-summary').textContent = d.summary || '(no summary)';
+
+    const srcDiv = document.getElementById('info-source');
+    if (d.source_url) {
+      srcDiv.style.display = 'block';
+      srcDiv.innerHTML = `<a class="source-btn" href="${d.source_url}" target="_blank" rel="noopener">View source material &rarr;</a>`;
+    } else {
+      srcDiv.style.display = 'none';
+    }
+
+    const conns = edgesCopy.filter(e => e.source.id === d.id || e.target.id === d.id);
+    const connIds = new Set();
+    conns.forEach(e => { connIds.add(e.source.id); connIds.add(e.target.id); });
+    const connHtml = conns.map(e => {
+      const isSource = e.source.id === d.id;
+      const other = isSource ? e.target.id : e.source.id;
+      const dir = isSource ? '&rarr;' : '&larr;';
+      const structBadge = e.edge_type === 'structural' ? '<span class="structural-badge">structural</span>' : '';
+      return `<div class="conn-item">${dir} <span class="pred">${e.predicate}</span> <span class="target" data-id="${other}">${other}</span>${structBadge}</div>`;
+    }).join('');
+    document.getElementById('info-connections').innerHTML = conns.length ? connHtml : '<div class="conn-item">No connections</div>';
+
+    node.attr('opacity', n => connIds.has(n.id) ? 1 : 0.08);
+    // Show glow on selected node + connected nodes
+    glow.attr('opacity', n => connIds.has(n.id) ? 1 : 0);
+    link.attr('stroke-opacity', e => e.source.id === d.id || e.target.id === d.id ? 1 : 0.02);
+    labels.attr('fill-opacity', n => connIds.has(n.id) ? 0.9 : 0.05);
+  });
+
+  document.getElementById('info-connections').addEventListener('click', (e) => {
+    if (e.target.classList.contains('target')) {
+      const id = e.target.dataset.id;
+      node.filter(n => n.id === id).dispatch('click');
+    }
+  });
+
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('cx', d => d.x).attr('cy', d => d.y);
+    glow.attr('cx', d => d.x).attr('cy', d => d.y);
+    labels.attr('x', d => d.x).attr('y', d => d.y);
+  });
+
+  currentNodes = nodesCopy;
+  currentEdges = edgesCopy;
+}
+
+fetch('graph-data.json').then(r => r.json()).then(data => {
+  allData = data;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  svg = d3.select('#graph')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  // Glow filter
+  defs = svg.append('defs');
+  const filter = defs.append('filter').attr('id', 'glow');
+  filter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'blur');
+  filter.append('feComposite').attr('in', 'blur').attr('in2', 'SourceGraphic');
+  const merge = filter.append('feMerge');
+  merge.append('feMergeNode').attr('in', 'blur');
+  merge.append('feMergeNode').attr('in', 'blur');
+  merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  g = svg.append('g');
+
+  zoom = d3.zoom()
+    .scaleExtent([0.08, 6])
+    .on('zoom', (event) => g.attr('transform', event.transform));
+  svg.call(zoom);
+
+  svg.on('click', (event) => {
+    if (event.target === svg.node()) {
+      document.getElementById('info-panel').style.display = 'none';
+      if (currentNodes) currentNodes.forEach(n => { n._selected = false; });
+      // Reset nodes to visible, glow circles to hidden
+      g.selectAll('.node-circle').attr('opacity', 1);
+      g.selectAll('.glow-circle').attr('opacity', 0);
+      g.selectAll('line').attr('stroke-opacity', d => d && d.edge_type === 'structural' ? 0.7 : 0.5);
+      g.selectAll('text').attr('fill-opacity', 0.6);
+    }
+  });
+
+  document.querySelectorAll('#filters input').forEach(el => {
+    el.addEventListener('change', applyFilters);
+  });
+
+  applyFilters();
+
+  setTimeout(() => {
+    svg.call(zoom.transform, d3.zoomIdentity.translate(width/4, height/4).scale(0.45));
+  }, 2000);
+});
+</script>
+</body>
+</html>
