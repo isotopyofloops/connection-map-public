@@ -438,15 +438,36 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
 
   // Apply URL parameters
   const params = new URLSearchParams(window.location.search);
+
+  // Edge type filters: ?edges=structural | ?edges=explicit | ?edges=all (default)
+  const edgesParam = params.get('edges');
+  if (edgesParam === 'structural') {
+    document.getElementById('f-structural').checked = true;
+    document.getElementById('f-explicit').checked = false;
+  } else if (edgesParam === 'explicit') {
+    document.getElementById('f-structural').checked = false;
+    document.getElementById('f-explicit').checked = true;
+  }
+  // Legacy support
   if (params.get('structural') === 'true') {
     document.getElementById('f-structural').checked = true;
     document.getElementById('f-explicit').checked = false;
   }
+
   if (params.get('neighborhood') === 'true') {
     document.getElementById('f-neighborhood').checked = true;
   }
   if (params.get('cross') === 'true') {
     document.getElementById('f-cross-only').checked = true;
+  }
+
+  // Agent/origin filters: ?origin=loom,sammy (comma-separated, only listed origins shown)
+  const originParam = params.get('origin');
+  if (originParam) {
+    const origins = originParam.toLowerCase().split(',').map(s => s.trim());
+    ['loom', 'sammy', 'isotopy', 'shared'].forEach(o => {
+      document.getElementById('f-' + o).checked = origins.includes(o);
+    });
   }
 
   applyFilters();
