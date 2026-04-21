@@ -78,6 +78,27 @@ body { background: #050508; color: #e0e0e0; font-family: 'Courier New', monospac
 #filters .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); }
 #filters .filter-label { color: #445; text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
 
+#search-wrap { position: relative; }
+#search-input {
+  background: #0a0a14; color: #dde; border: 1px solid rgba(100,200,255,0.2);
+  border-radius: 6px; padding: 4px 10px; font-size: 11px; width: 180px;
+  font-family: 'Courier New', monospace; outline: none; transition: border-color 0.2s;
+}
+#search-input:focus { border-color: rgba(100,200,255,0.5); }
+#search-input::placeholder { color: #445; }
+#search-results {
+  position: absolute; top: 100%; left: 0; width: 260px; max-height: 240px;
+  overflow-y: auto; background: rgba(8,8,16,0.97); border: 1px solid rgba(100,200,255,0.15);
+  border-radius: 6px; margin-top: 4px; display: none; z-index: 20;
+}
+#search-results .sr-item {
+  padding: 6px 10px; cursor: pointer; font-size: 11px; display: flex;
+  justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+#search-results .sr-item:hover { background: rgba(100,200,255,0.08); }
+#search-results .sr-item .sr-origin { font-size: 9px; opacity: 0.5; text-transform: uppercase; }
+#search-results .sr-empty { padding: 10px; color: #445; font-size: 11px; text-align: center; }
+
 #stats {
   position: fixed; bottom: 16px; right: 16px;
   background: rgba(8, 8, 16, 0.9); border: 1px solid rgba(100, 200, 255, 0.1);
@@ -94,6 +115,11 @@ svg text { pointer-events: none; }
   <p>Cross-agent knowledge graph</p>
 </div>
 <div id="filters">
+  <div id="search-wrap">
+    <input type="text" id="search-input" placeholder="Search nodes...">
+    <div id="search-results"></div>
+  </div>
+  <div class="divider"></div>
   <span class="filter-label">Agents</span>
   <div class="filter-group">
     <label><input type="checkbox" id="f-loom" checked> <span style="color:#55ccff">Loom</span></label>
@@ -495,6 +521,63 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
     setTimeout(() => {
       svg.call(zoom.transform, d3.zoomIdentity.translate(width/4, height/4).scale(0.45));
     }, 2000);
+  }
+  // Search
+  const searchInput = document.getElementById('search-input');
+  const searchResults = document.getElementById('search-results');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q || !allData) { searchResults.style.display = 'none'; return; }
+    const matches = allData.nodes
+      .filter(n => n.id.toLowerCase().includes(q) || (n.summary && n.summary.toLowerCase().includes(q)))
+      .slice(0, 12);
+    if (!matches.length) {
+      searchResults.innerHTML = '<div class="sr-empty">No matches</div>';
+    } else {
+      searchResults.innerHTML = matches.map(n =>
+        `<div class="sr-item" data-id="${n.id}"><span style="color:${originColors[n.origin] || '#aab'}">${n.id}</span><span class="sr-origin">${n.origin}</span></div>`
+      ).join('');
+    }
+    searchResults.style.display = 'block';
+  });
+
+  searchResults.addEventListener('click', (e) => {
+    const item = e.target.closest('.sr-item');
+    if (!item) return;
+    const id = item.dataset.id;
+    searchInput.value = '';
+    searchResults.style.display = 'none';
+    const match = currentNodes.find(n => n.id === id);
+    if (match) {
+      const scale = 1.5;
+      svg.transition().duration(800).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(window.innerWidth/2 - match.x * scale, window.innerHeight/2 - match.y * scale).scale(scale)
+      );
+      setTimeout(() => {
+        g.selectAll('.node-circle').filter(n => n.id === id).dispatch('click');
+      }, 900);
+    }
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { searchResults.style.display = 'none'; searchInput.blur(); }
+    if (e.key === 'Enter') {
+      const first = searchResults.querySelector('.sr-item');
+      if (first) first.click();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#search-wrap')) searchResults.style.display = 'none';
+  });
+
+  // URL param: ?search=term
+  const searchParam = params.get('search');
+  if (searchParam) {
+    searchInput.value = searchParam;
+    searchInput.dispatchEvent(new Event('input'));
   }
 });
 </script>
