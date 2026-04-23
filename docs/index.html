@@ -78,6 +78,28 @@ body { background: #050508; color: #e0e0e0; font-family: 'Courier New', monospac
 #filters .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); }
 #filters .filter-label { color: #445; text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
 
+#edge-dropdown-wrap { position: relative; }
+#edge-dropdown-btn {
+  background: #0a0a14; color: #778; border: 1px solid rgba(100,200,255,0.2);
+  border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer;
+  font-family: 'Courier New', monospace; transition: all 0.2s;
+}
+#edge-dropdown-btn:hover { color: #dde; border-color: rgba(100,200,255,0.4); }
+#edge-dropdown-menu {
+  position: absolute; top: 100%; left: 0; width: 220px;
+  background: rgba(8,8,16,0.97); border: 1px solid rgba(100,200,255,0.15);
+  border-radius: 6px; margin-top: 4px; display: none; z-index: 20;
+  padding: 8px 0;
+}
+#edge-dropdown-menu label {
+  display: flex; align-items: center; gap: 6px; padding: 5px 14px;
+  color: #778; cursor: pointer; font-size: 11px; transition: background 0.15s;
+}
+#edge-dropdown-menu label:hover { background: rgba(100,200,255,0.06); color: #dde; }
+#edge-dropdown-menu .edge-sep {
+  height: 1px; background: rgba(255,255,255,0.06); margin: 4px 10px;
+}
+
 #search-wrap { position: relative; }
 #search-input {
   background: #0a0a14; color: #dde; border: 1px solid rgba(100,200,255,0.2);
@@ -128,19 +150,23 @@ svg text { pointer-events: none; }
     <label><input type="checkbox" id="f-shared" checked> <span style="color:#55eecc">Shared</span></label>
   </div>
   <div class="divider"></div>
-  <span class="filter-label">Edges</span>
-  <div class="filter-group" style="flex-wrap:wrap;max-width:640px;">
-    <label><input type="checkbox" class="edge-filter" data-pred="cosine_similarity" checked> <span style="color:#e8943a">Cosine</span></label>
-    <label><input type="checkbox" class="edge-filter" data-pred="structural_isomorphism" checked> <span style="color:#e06c75">Structural</span></label>
-    <label><input type="checkbox" class="edge-filter" data-pred="authored_by" checked> <span style="color:#55eecc">Authored</span></label>
-    <label><input type="checkbox" class="edge-filter" data-pred="related_to" checked> Related</label>
-    <label><input type="checkbox" class="edge-filter" data-pred="instance_of" checked> Instance</label>
-    <label><input type="checkbox" class="edge-filter" data-pred="corresponds_with" checked> Corresponds</label>
-    <label><input type="checkbox" class="edge-filter" data-pred="contrasts_with" checked> Contrasts</label>
-    <label><input type="checkbox" class="edge-filter" data-pred="convergent_with" checked> <span style="color:#ffcc55">Convergent</span></label>
-    <label><input type="checkbox" class="edge-filter" data-pred="structural_analog_of" checked> <span style="color:#ff9966">Analog</span></label>
-    <label><input type="checkbox" class="edge-filter" data-pred="same_phenomenon" checked> Same</label>
-    <label><input type="checkbox" class="edge-filter" data-pred="describes_mechanism_of" checked> Mechanism</label>
+  <div id="edge-dropdown-wrap">
+    <button id="edge-dropdown-btn">Edge types ▾</button>
+    <div id="edge-dropdown-menu">
+      <label><input type="checkbox" class="edge-filter" data-pred="cosine_similarity" checked> <span style="color:#e8943a">● Cosine similarity</span> <span style="color:#445;margin-left:auto">3451</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="structural_isomorphism" checked> <span style="color:#e06c75">◆ Structural isomorphism</span> <span style="color:#445;margin-left:auto">26</span></label>
+      <div class="edge-sep"></div>
+      <label><input type="checkbox" class="edge-filter" data-pred="authored_by" checked> <span style="color:#55eecc">● Authored by</span> <span style="color:#445;margin-left:auto">190</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="related_to" checked> Related to <span style="color:#445;margin-left:auto">267</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="instance_of" checked> Instance of <span style="color:#445;margin-left:auto">17</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="corresponds_with" checked> <span style="color:#55eecc">● Corresponds with</span> <span style="color:#445;margin-left:auto">13</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="contrasts_with" checked> Contrasts with <span style="color:#445;margin-left:auto">12</span></label>
+      <div class="edge-sep"></div>
+      <label><input type="checkbox" class="edge-filter" data-pred="convergent_with" checked> <span style="color:#ffcc55">● Convergent with</span> <span style="color:#445;margin-left:auto">10</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="structural_analog_of" checked> <span style="color:#ff9966">● Structural analog</span> <span style="color:#445;margin-left:auto">8</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="describes_mechanism_of" checked> Describes mechanism <span style="color:#445;margin-left:auto">9</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="same_phenomenon" checked> Same phenomenon <span style="color:#445;margin-left:auto">5</span></label>
+    </div>
   </div>
   <div class="divider"></div>
   <div class="filter-group">
@@ -185,18 +211,10 @@ const originColors = {
   shared: '#55eecc'
 };
 
-const originGlow = {
-  loom: 'rgba(85, 204, 255, 0.6)',
-  sammy: 'rgba(255, 102, 170, 0.6)',
-  isotopy: 'rgba(170, 119, 255, 0.6)',
-  shared: 'rgba(85, 238, 204, 0.6)'
-};
-
 let allData, simulation, svg, g, zoom, defs;
 let currentNodes = [], currentEdges = [];
 
 function getColor(d) { return originColors[d.origin] || '#556'; }
-function getGlow(d) { return originGlow[d.origin] || 'rgba(100,100,100,0.4)'; }
 
 const edgeColors = {
   cosine_similarity: '#e8943a',
@@ -320,17 +338,6 @@ function renderGraph(nodes, edges) {
   });
   nodesCopy.forEach(n => { n._degree = degreeMap[n.id] || 0; });
 
-  // Glow layer (hidden by default — shown on hover/select)
-  const glow = g.append('g')
-    .selectAll('circle')
-    .data(nodesCopy)
-    .join('circle')
-    .attr('class', 'glow-circle')
-    .attr('r', d => Math.max(8, Math.min(28, 6 + d._degree * 1.5)))
-    .attr('fill', d => getGlow(d))
-    .attr('filter', 'url(#glow)')
-    .attr('opacity', 0);
-
   // Node layer
   const node = g.append('g')
     .selectAll('circle')
@@ -359,12 +366,7 @@ function renderGraph(nodes, edges) {
         event.subject.fy = null;
       }));
 
-  // Hover glow
-  node.on('mouseenter', (event, d) => {
-    glow.filter(n => n.id === d.id).attr('opacity', 1);
-  }).on('mouseleave', (event, d) => {
-    if (!d._selected) glow.filter(n => n.id === d.id).attr('opacity', 0);
-  });
+
 
   const labels = g.append('g')
     .selectAll('text')
@@ -424,8 +426,6 @@ function renderGraph(nodes, edges) {
     document.getElementById('info-connections').innerHTML = conns.length ? connHtml : '<div class="conn-item">No connections</div>';
 
     node.attr('opacity', n => connIds.has(n.id) ? 1 : 0.08);
-    // Show glow on selected node + connected nodes
-    glow.attr('opacity', n => connIds.has(n.id) ? 1 : 0);
     link.attr('stroke-opacity', e => e.source.id === d.id || e.target.id === d.id ? 1 : 0.02);
     labels.attr('fill-opacity', n => connIds.has(n.id) ? 0.9 : 0.05);
   });
@@ -442,7 +442,6 @@ function renderGraph(nodes, edges) {
       .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
     node.attr('cx', d => d.x).attr('cy', d => d.y);
-    glow.attr('cx', d => d.x).attr('cy', d => d.y);
     labels.attr('x', d => d.x).attr('y', d => d.y);
   });
 
@@ -460,15 +459,7 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
     .attr('width', width)
     .attr('height', height);
 
-  // Glow filter
   defs = svg.append('defs');
-  const filter = defs.append('filter').attr('id', 'glow');
-  filter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'blur');
-  filter.append('feComposite').attr('in', 'blur').attr('in2', 'SourceGraphic');
-  const merge = filter.append('feMerge');
-  merge.append('feMergeNode').attr('in', 'blur');
-  merge.append('feMergeNode').attr('in', 'blur');
-  merge.append('feMergeNode').attr('in', 'SourceGraphic');
 
   g = svg.append('g');
 
@@ -483,7 +474,6 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
       if (currentNodes) currentNodes.forEach(n => { n._selected = false; });
       // Reset nodes to visible, glow circles to hidden
       g.selectAll('.node-circle').attr('opacity', 1);
-      g.selectAll('.glow-circle').attr('opacity', 0);
       g.selectAll('line').attr('stroke-opacity', d => d && d.predicate === 'structural_isomorphism' ? 0.8 : d && d.predicate === 'cosine_similarity' ? 0.3 : 0.5);
       g.selectAll('text').attr('fill-opacity', 0.6);
     }
@@ -492,6 +482,16 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
   document.querySelectorAll('#filters input, #filters select, .edge-filter').forEach(el => {
     el.addEventListener('change', applyFilters);
   });
+
+  // Edge type dropdown toggle
+  const edgeBtn = document.getElementById('edge-dropdown-btn');
+  const edgeMenu = document.getElementById('edge-dropdown-menu');
+  edgeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    edgeMenu.style.display = edgeMenu.style.display === 'block' ? 'none' : 'block';
+  });
+  edgeMenu.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => { edgeMenu.style.display = 'none'; });
 
   // Apply URL parameters
   const params = new URLSearchParams(window.location.search);
