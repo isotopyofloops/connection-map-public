@@ -129,9 +129,21 @@ svg text { pointer-events: none; }
   </div>
   <div class="divider"></div>
   <span class="filter-label">Edges</span>
+  <div class="filter-group" style="flex-wrap:wrap;max-width:640px;">
+    <label><input type="checkbox" class="edge-filter" data-pred="cosine_similarity" checked> <span style="color:#e8943a">Cosine</span></label>
+    <label><input type="checkbox" class="edge-filter" data-pred="structural_isomorphism" checked> <span style="color:#e06c75">Structural</span></label>
+    <label><input type="checkbox" class="edge-filter" data-pred="authored_by" checked> <span style="color:#55eecc">Authored</span></label>
+    <label><input type="checkbox" class="edge-filter" data-pred="related_to" checked> Related</label>
+    <label><input type="checkbox" class="edge-filter" data-pred="instance_of" checked> Instance</label>
+    <label><input type="checkbox" class="edge-filter" data-pred="corresponds_with" checked> Corresponds</label>
+    <label><input type="checkbox" class="edge-filter" data-pred="contrasts_with" checked> Contrasts</label>
+    <label><input type="checkbox" class="edge-filter" data-pred="convergent_with" checked> <span style="color:#ffcc55">Convergent</span></label>
+    <label><input type="checkbox" class="edge-filter" data-pred="structural_analog_of" checked> <span style="color:#ff9966">Analog</span></label>
+    <label><input type="checkbox" class="edge-filter" data-pred="same_phenomenon" checked> Same</label>
+    <label><input type="checkbox" class="edge-filter" data-pred="describes_mechanism_of" checked> Mechanism</label>
+  </div>
+  <div class="divider"></div>
   <div class="filter-group">
-    <label><input type="checkbox" id="f-explicit" checked> Explicit</label>
-    <label><input type="checkbox" id="f-structural" checked> <span style="color:#e06c75">Structural</span></label>
     <label><input type="checkbox" id="f-cross-only"> Cross-agent only</label>
     <label style="gap:2px"><span style="color:#e06c75">Neighborhood</span>
       <select id="f-neighborhood" style="background:#0a0a14;color:#e06c75;border:1px solid rgba(224,108,117,0.3);border-radius:4px;padding:1px 4px;font-size:10px;font-family:'Courier New',monospace;">
@@ -149,8 +161,10 @@ svg text { pointer-events: none; }
   <div class="legend-item"><div class="legend-dot" style="background:#aa77ff; box-shadow:0 0 8px #aa77ff"></div> Isotopy</div>
   <div class="legend-item"><div class="legend-dot" style="background:#55eecc; box-shadow:0 0 8px #55eecc"></div> Shared</div>
   <h4 style="margin-top:10px">Edge Type</h4>
-  <div class="legend-item"><div class="legend-line" style="border-color:rgba(255,255,255,0.15)"></div> Explicit</div>
-  <div class="legend-item"><div class="legend-line" style="border-color:#e06c75; border-style:dashed"></div> Structural</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:#e8943a"></div> Cosine similarity</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:#e06c75; border-style:dashed"></div> Structural isomorphism</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:#55eecc"></div> Authored by</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:rgba(255,255,255,0.25)"></div> Curated (other)</div>
 </div>
 <div id="stats"></div>
 <div id="info-panel">
@@ -184,7 +198,25 @@ let currentNodes = [], currentEdges = [];
 function getColor(d) { return originColors[d.origin] || '#556'; }
 function getGlow(d) { return originGlow[d.origin] || 'rgba(100,100,100,0.4)'; }
 
+const edgeColors = {
+  cosine_similarity: '#e8943a',
+  structural_isomorphism: '#e06c75',
+  authored_by: '#55eecc',
+  corresponds_with: '#55eecc',
+  related_to: 'rgba(255,255,255,0.25)',
+  instance_of: 'rgba(255,255,255,0.25)',
+  contrasts_with: 'rgba(255,255,255,0.25)',
+  convergent_with: '#ffcc55',
+  structural_analog_of: '#ff9966',
+  same_phenomenon: 'rgba(255,255,255,0.25)',
+  describes_mechanism_of: 'rgba(255,255,255,0.25)',
+};
+
 function getFilterState() {
+  const enabledPreds = new Set();
+  document.querySelectorAll('.edge-filter').forEach(el => {
+    if (el.checked) enabledPreds.add(el.dataset.pred);
+  });
   return {
     origins: {
       loom: document.getElementById('f-loom').checked,
@@ -192,8 +224,7 @@ function getFilterState() {
       isotopy: document.getElementById('f-isotopy').checked,
       shared: document.getElementById('f-shared').checked,
     },
-    explicit: document.getElementById('f-explicit').checked,
-    structural: document.getElementById('f-structural').checked,
+    enabledPreds,
     crossOnly: document.getElementById('f-cross-only').checked,
     neighborhoodHops: parseInt(document.getElementById('f-neighborhood').value) || 0,
   };
@@ -202,16 +233,15 @@ function getFilterState() {
 function applyFilters() {
   const f = getFilterState();
   let filteredEdges = allData.edges.filter(e => {
-    if (e.edge_type === 'structural' && !f.structural) return false;
-    if (e.edge_type === 'explicit' && !f.explicit) return false;
+    if (!f.enabledPreds.has(e.predicate)) return false;
     if (f.crossOnly && !e.cross_agent) return false;
     return true;
   });
 
-  if (f.neighborhoodHops > 0 && f.structural) {
+  if (f.neighborhoodHops > 0 && f.enabledPreds.has('structural_isomorphism')) {
     const structuralNodes = new Set();
     allData.edges.forEach(e => {
-      if (e.edge_type === 'structural') {
+      if (e.predicate === 'structural_isomorphism') {
         structuralNodes.add(e.source);
         structuralNodes.add(e.target);
       }
@@ -221,7 +251,7 @@ function applyFilters() {
     for (let hop = 0; hop < f.neighborhoodHops; hop++) {
       const nextFrontier = new Set();
       allData.edges.forEach(e => {
-        if (e.edge_type === 'explicit' && (currentFrontier.has(e.source) || currentFrontier.has(e.target))) {
+        if (e.edge_type !== 'structural' && f.enabledPreds.has(e.predicate) && (currentFrontier.has(e.source) || currentFrontier.has(e.target))) {
           neighborEdges.push(e);
           nextFrontier.add(e.source);
           nextFrontier.add(e.target);
@@ -246,8 +276,10 @@ function applyFilters() {
   const nodeIds = new Set(filteredNodes.map(n => n.id));
   const validEdges = filteredEdges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
   let label = '';
-  if (f.structural && !f.explicit && f.neighborhoodHops === 0) label = ' (structural only)';
-  else if (f.structural && !f.explicit && f.neighborhoodHops > 0) label = ` (structural + ${f.neighborhoodHops}-hop)`;
+  const predCount = f.enabledPreds.size;
+  if (predCount === 1) label = ` (${[...f.enabledPreds][0]} only)`;
+  else if (predCount < 11) label = ` (${predCount} edge types)`;
+  if (f.neighborhoodHops > 0) label += ` (+${f.neighborhoodHops}-hop)`;
   if (f.crossOnly) label += ' (cross-agent)';
   document.getElementById('stats').textContent =
     `${filteredNodes.length} nodes · ${validEdges.length} edges` + label;
@@ -272,10 +304,10 @@ function renderGraph(nodes, edges) {
     .selectAll('line')
     .data(edgesCopy)
     .join('line')
-    .attr('stroke', d => d.edge_type === 'structural' ? '#e06c75' : '#e8943a')
-    .attr('stroke-width', d => d.edge_type === 'structural' ? 1.8 : 1.0)
-    .attr('stroke-opacity', d => d.edge_type === 'structural' ? 0.7 : 0.45)
-    .attr('stroke-dasharray', d => d.edge_type === 'structural' ? '5,4' : null);
+    .attr('stroke', d => edgeColors[d.predicate] || 'rgba(255,255,255,0.15)')
+    .attr('stroke-width', d => d.predicate === 'structural_isomorphism' ? 2.0 : d.predicate === 'convergent_with' || d.predicate === 'structural_analog_of' ? 1.4 : 1.0)
+    .attr('stroke-opacity', d => d.predicate === 'structural_isomorphism' ? 0.8 : d.predicate === 'cosine_similarity' ? 0.3 : 0.5)
+    .attr('stroke-dasharray', d => d.predicate === 'structural_isomorphism' ? '5,4' : null);
 
   // Precompute degree per node
   const degreeMap = {};
@@ -386,7 +418,7 @@ function renderGraph(nodes, edges) {
       const isSource = e.source.id === d.id;
       const other = isSource ? e.target.id : e.source.id;
       const dir = isSource ? '&rarr;' : '&larr;';
-      const structBadge = e.edge_type === 'structural' ? '<span class="structural-badge">structural</span>' : '';
+      const structBadge = e.predicate === 'structural_isomorphism' ? '<span class="structural-badge">structural isomorphism</span>' : '';
       return `<div class="conn-item">${dir} <span class="pred">${e.predicate || e.relation || ''}</span> <span class="target" data-id="${other}">${other}</span>${structBadge}</div>`;
     }).join('');
     document.getElementById('info-connections').innerHTML = conns.length ? connHtml : '<div class="conn-item">No connections</div>';
@@ -452,31 +484,42 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
       // Reset nodes to visible, glow circles to hidden
       g.selectAll('.node-circle').attr('opacity', 1);
       g.selectAll('.glow-circle').attr('opacity', 0);
-      g.selectAll('line').attr('stroke-opacity', d => d && d.edge_type === 'structural' ? 0.7 : 0.45);
+      g.selectAll('line').attr('stroke-opacity', d => d && d.predicate === 'structural_isomorphism' ? 0.8 : d && d.predicate === 'cosine_similarity' ? 0.3 : 0.5);
       g.selectAll('text').attr('fill-opacity', 0.6);
     }
   });
 
-  document.querySelectorAll('#filters input, #filters select').forEach(el => {
+  document.querySelectorAll('#filters input, #filters select, .edge-filter').forEach(el => {
     el.addEventListener('change', applyFilters);
   });
 
   // Apply URL parameters
   const params = new URLSearchParams(window.location.search);
 
-  // Edge type filters: ?edges=structural | ?edges=explicit | ?edges=all (default)
+  // Edge type filters: ?edges=structural | ?edges=curated | ?edges=cosine | ?edges=pred1,pred2
   const edgesParam = params.get('edges');
-  if (edgesParam === 'structural') {
-    document.getElementById('f-structural').checked = true;
-    document.getElementById('f-explicit').checked = false;
-  } else if (edgesParam === 'explicit') {
-    document.getElementById('f-structural').checked = false;
-    document.getElementById('f-explicit').checked = true;
+  if (edgesParam) {
+    const requested = edgesParam.toLowerCase().split(',').map(s => s.trim());
+    // Map shorthand names
+    const shorthand = {
+      'structural': ['structural_isomorphism'],
+      'curated': ['authored_by','related_to','instance_of','corresponds_with','contrasts_with','convergent_with','structural_analog_of','same_phenomenon','describes_mechanism_of'],
+      'cosine': ['cosine_similarity'],
+    };
+    const enablePreds = new Set();
+    requested.forEach(r => {
+      if (shorthand[r]) shorthand[r].forEach(p => enablePreds.add(p));
+      else enablePreds.add(r);
+    });
+    document.querySelectorAll('.edge-filter').forEach(el => {
+      el.checked = enablePreds.has(el.dataset.pred);
+    });
   }
   // Legacy support
   if (params.get('structural') === 'true') {
-    document.getElementById('f-structural').checked = true;
-    document.getElementById('f-explicit').checked = false;
+    document.querySelectorAll('.edge-filter').forEach(el => {
+      el.checked = el.dataset.pred === 'structural_isomorphism';
+    });
   }
 
   const neighborhoodParam = params.get('neighborhood');
