@@ -78,21 +78,16 @@ body { background: #050508; color: #e0e0e0; font-family: 'Courier New', monospac
 #filters .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); }
 #filters .filter-label { color: #445; text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
 
-#cosine-slider-wrap { display: flex; align-items: center; gap: 6px; }
-#cosine-slider-wrap .slider-label { color: #e8943a; font-size: 10px; white-space: nowrap; }
-#cosine-slider {
-  -webkit-appearance: none; appearance: none; width: 90px; height: 4px;
-  background: rgba(232,148,58,0.25); border-radius: 2px; outline: none;
+#cosine-ctrl { display: flex; align-items: center; gap: 5px; }
+#cosine-ctrl .cosine-label { color: #e8943a; font-size: 10px; white-space: nowrap; }
+#cosine-ctrl .cosine-btn {
+  background: rgba(232,148,58,0.15); color: #e8943a; border: 1px solid rgba(232,148,58,0.35);
+  border-radius: 4px; width: 20px; height: 20px; font-size: 13px; line-height: 1;
+  cursor: pointer; font-family: 'Courier New', monospace; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
 }
-#cosine-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
-  background: #e8943a; border-radius: 50%; cursor: pointer;
-}
-#cosine-slider::-moz-range-thumb {
-  width: 12px; height: 12px; background: #e8943a; border-radius: 50%;
-  cursor: pointer; border: none;
-}
-#cosine-val { color: #e8943a; font-size: 10px; min-width: 28px; }
+#cosine-ctrl .cosine-btn:hover { background: rgba(232,148,58,0.3); border-color: rgba(232,148,58,0.6); }
+#cosine-val { color: #e8943a; font-size: 11px; min-width: 30px; text-align: center; font-weight: bold; }
 
 #edge-dropdown-wrap { position: relative; }
 #edge-dropdown-btn {
@@ -185,10 +180,11 @@ svg text { pointer-events: none; }
     </div>
   </div>
   <div class="divider"></div>
-  <div id="cosine-slider-wrap">
-    <span class="slider-label">Cosine ≥</span>
-    <input type="range" id="cosine-slider" min="0.40" max="0.80" step="0.01" value="0.40">
+  <div id="cosine-ctrl">
+    <span class="cosine-label">Cosine ≥</span>
+    <button class="cosine-btn" id="cosine-minus">−</button>
     <span id="cosine-val">0.40</span>
+    <button class="cosine-btn" id="cosine-plus">+</button>
   </div>
   <div class="divider"></div>
   <div class="filter-group">
@@ -265,7 +261,7 @@ function getFilterState() {
       shared: document.getElementById('f-shared').checked,
     },
     enabledPreds,
-    cosineMin: parseFloat(document.getElementById('cosine-slider').value),
+    cosineMin: parseFloat(document.getElementById('cosine-val').textContent),
     crossOnly: document.getElementById('f-cross-only').checked,
     neighborhoodHops: parseInt(document.getElementById('f-neighborhood').value) || 0,
   };
@@ -507,12 +503,17 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
     el.addEventListener('change', applyFilters);
   });
 
-  const cosineSlider = document.getElementById('cosine-slider');
   const cosineVal = document.getElementById('cosine-val');
-  cosineSlider.addEventListener('input', () => {
-    cosineVal.textContent = cosineSlider.value;
+  let cosineMin = 0.40;
+  function updateCosine(delta) {
+    cosineMin = Math.round((cosineMin + delta) * 100) / 100;
+    if (cosineMin < 0.10) cosineMin = 0.10;
+    if (cosineMin > 0.80) cosineMin = 0.80;
+    cosineVal.textContent = cosineMin.toFixed(2);
     applyFilters();
-  });
+  }
+  document.getElementById('cosine-minus').addEventListener('click', () => updateCosine(-0.05));
+  document.getElementById('cosine-plus').addEventListener('click', () => updateCosine(0.05));
 
   // Edge type dropdown toggle
   const edgeBtn = document.getElementById('edge-dropdown-btn');
