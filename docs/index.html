@@ -153,19 +153,19 @@ svg text { pointer-events: none; }
   <div id="edge-dropdown-wrap">
     <button id="edge-dropdown-btn">Edge types ▾</button>
     <div id="edge-dropdown-menu">
-      <label><input type="checkbox" class="edge-filter" data-pred="cosine_similarity" checked> <span style="color:#e8943a">● Cosine similarity</span> <span style="color:#445;margin-left:auto">3451</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="structural_isomorphism" checked> <span style="color:#e06c75">◆ Structural isomorphism</span> <span style="color:#445;margin-left:auto">26</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="cosine_similarity" checked> <span style="color:#e8943a">● Cosine similarity</span> <span style="color:#667;margin-left:auto">3451</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="structural_isomorphism" checked> <span style="color:#e06c75">◆ Structural isomorphism</span> <span style="color:#667;margin-left:auto">26</span></label>
       <div class="edge-sep"></div>
-      <label><input type="checkbox" class="edge-filter" data-pred="authored_by" checked> <span style="color:#55eecc">● Authored by</span> <span style="color:#445;margin-left:auto">190</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="related_to" checked> Related to <span style="color:#445;margin-left:auto">267</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="instance_of" checked> Instance of <span style="color:#445;margin-left:auto">17</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="corresponds_with" checked> <span style="color:#55eecc">● Corresponds with</span> <span style="color:#445;margin-left:auto">13</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="contrasts_with" checked> Contrasts with <span style="color:#445;margin-left:auto">12</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="authored_by" checked> <span style="color:#55eecc">● Authored by</span> <span style="color:#667;margin-left:auto">190</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="related_to" checked> <span style="color:#b4bed2">● Related to</span> <span style="color:#667;margin-left:auto">267</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="instance_of" checked> <span style="color:#b4bed2">● Instance of</span> <span style="color:#667;margin-left:auto">17</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="corresponds_with" checked> <span style="color:#55eecc">● Corresponds with</span> <span style="color:#667;margin-left:auto">13</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="contrasts_with" checked> <span style="color:#b4bed2">● Contrasts with</span> <span style="color:#667;margin-left:auto">12</span></label>
       <div class="edge-sep"></div>
-      <label><input type="checkbox" class="edge-filter" data-pred="convergent_with" checked> <span style="color:#ffcc55">● Convergent with</span> <span style="color:#445;margin-left:auto">10</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="structural_analog_of" checked> <span style="color:#ff9966">● Structural analog</span> <span style="color:#445;margin-left:auto">8</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="describes_mechanism_of" checked> Describes mechanism <span style="color:#445;margin-left:auto">9</span></label>
-      <label><input type="checkbox" class="edge-filter" data-pred="same_phenomenon" checked> Same phenomenon <span style="color:#445;margin-left:auto">5</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="convergent_with" checked> <span style="color:#ffcc55">● Convergent with</span> <span style="color:#667;margin-left:auto">10</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="structural_analog_of" checked> <span style="color:#ff9966">● Structural analog</span> <span style="color:#667;margin-left:auto">8</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="describes_mechanism_of" checked> <span style="color:#b4bed2">● Describes mechanism</span> <span style="color:#667;margin-left:auto">9</span></label>
+      <label><input type="checkbox" class="edge-filter" data-pred="same_phenomenon" checked> <span style="color:#b4bed2">● Same phenomenon</span> <span style="color:#667;margin-left:auto">5</span></label>
     </div>
   </div>
   <div class="divider"></div>
@@ -190,7 +190,7 @@ svg text { pointer-events: none; }
   <div class="legend-item"><div class="legend-line" style="border-color:#e8943a"></div> Cosine similarity</div>
   <div class="legend-item"><div class="legend-line" style="border-color:#e06c75; border-style:dashed"></div> Structural isomorphism</div>
   <div class="legend-item"><div class="legend-line" style="border-color:#55eecc"></div> Authored by</div>
-  <div class="legend-item"><div class="legend-line" style="border-color:rgba(255,255,255,0.25)"></div> Curated (other)</div>
+  <div class="legend-item"><div class="legend-line" style="border-color:rgba(180,190,210,0.55)"></div> Curated (other)</div>
 </div>
 <div id="stats"></div>
 <div id="info-panel">
@@ -221,13 +221,13 @@ const edgeColors = {
   structural_isomorphism: '#e06c75',
   authored_by: '#55eecc',
   corresponds_with: '#55eecc',
-  related_to: 'rgba(255,255,255,0.25)',
-  instance_of: 'rgba(255,255,255,0.25)',
-  contrasts_with: 'rgba(255,255,255,0.25)',
+  related_to: 'rgba(180,190,210,0.55)',
+  instance_of: 'rgba(180,190,210,0.55)',
+  contrasts_with: 'rgba(180,190,210,0.55)',
   convergent_with: '#ffcc55',
   structural_analog_of: '#ff9966',
-  same_phenomenon: 'rgba(255,255,255,0.25)',
-  describes_mechanism_of: 'rgba(255,255,255,0.25)',
+  same_phenomenon: 'rgba(180,190,210,0.55)',
+  describes_mechanism_of: 'rgba(180,190,210,0.55)',
 };
 
 function getFilterState() {
