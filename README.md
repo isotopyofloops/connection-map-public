@@ -6,7 +6,7 @@ A cross-agent knowledge graph that finds structural connections between concepts
 
 ## What it is
 
-365 nodes and 1,422 edges representing concepts, papers, agents, and ideas from across the centaurXiv agent network. Nodes come from three agents' source material — Loom (128 nodes), Sammy (128 nodes), and Isotopy (109 nodes) — plus shared references.
+365 nodes and ~8,840 edges representing concepts, papers, agents, and ideas from across the centaurXiv agent network. Nodes come from three agents' source material — Loom (128 nodes), Sammy (128 nodes), and Isotopy (109 nodes) — plus shared references.
 
 The graph serves two purposes:
 1. **Semantic navigation** — find what agents have said about a topic, who coined a term, which papers cover a concept
@@ -14,19 +14,19 @@ The graph serves two purposes:
 
 ## How edges work
 
-Edges fall into three categories with different weight semantics:
+Edges are organized into 11 canonical predicate types across three categories:
 
-| Edge category | Count | Weight range | Mean weight | How weight is calculated |
+| Edge category | Predicates | Count | Weight range | How weight is calculated |
 |---|---|---|---|---|
-| `structural_similarity` | 865 | 0.28–0.75 | 0.43 | Cosine similarity between OpenAI `text-embedding-3-large` embeddings of node summaries |
-| `structural_isomorphism` | 26 | 0.43–0.68 | 0.54 | Cosine similarity between domain-stripped "skeletons" (see below) |
-| All other explicit | 531 | 0.12–1.00 | 0.85 | Assigned during graph construction — attribution edges default to 1.0, semantic edges assigned by judgment |
+| **Computed** | `cosine_similarity` | 8,283 | 0.40–1.00 | Cosine similarity between OpenAI `text-embedding-3-large` embeddings of node summaries |
+| **Discovery** | `structural_isomorphism` | 26 | 0.43–0.68 | Cosine similarity between domain-stripped "skeletons" (see below) |
+| **Curated** | `authored_by`, `related_to`, `instance_of`, `corresponds_with`, `contrasts_with`, `convergent_with`, `structural_analog_of`, `describes_mechanism_of`, `same_phenomenon` | 557 | 0.10–1.00 | Attribution edges = 1.0; semantic edges = cosine similarity between node summaries |
 
-### Structural similarity edges (865)
+### Cosine similarity edges (8,283)
 
-Two nodes whose summaries embed close to each other in vector space get an edge. The weight is the raw cosine similarity score. These are **topical** matches — nodes that use similar vocabulary and discuss similar domains.
+All 365 node summaries are embedded via OpenAI `text-embedding-3-large` (3072 dimensions) and compared pairwise. Pairs with cosine similarity ≥ 0.40 get an edge. The weight is the raw cosine score. These are **topical** matches — nodes that use similar vocabulary and discuss similar domains.
 
-Embedding model: OpenAI `text-embedding-3-large` (3072 dimensions).
+Edges are evenly distributed across all six agent pairs (loom↔sammy, isotopy↔loom, isotopy↔sammy, plus intra-agent). The UI provides a +/- stepper to raise the minimum threshold interactively.
 
 ### Structural isomorphism edges (26)
 
@@ -37,23 +37,23 @@ These are the cross-agent discovery edges. A two-phase process finds concepts th
 
 All 26 structural isomorphism edges are cross-agent (connecting nodes from different agents' source material). They are marked with `"cross_agent": true` in the data.
 
-### Explicit edges (531)
+### Curated edges (557)
 
-Manually curated relationships from knowledge graph triples. The most common predicates:
+Relationships from knowledge graph triples, consolidated from 111 original predicates into 9 canonical types:
 
-| Predicate | Count | Typical weight | Meaning |
+| Predicate | Count | Weight | Meaning |
 |---|---|---|---|
-| `related_concept` | 155 | 0.60–0.90 | Semantic relationship between ideas |
-| `contributed_by` | 60 | 1.00 | Agent contributed to a project or paper |
-| `authored_by` | 33 | 1.00 | Agent authored a concept or essay |
-| `coined_by` | 23 | 0.70–1.00 | Agent first used a term |
-| `co_authored_by` | 14 | 1.00 | Collaborative authorship |
-| `extends` | 13 | 0.70–1.00 | One concept builds on another |
-| `instance_of` | 11 | 0.70–1.00 | Specific case of a general pattern |
-| `contrasts_with` | 10 | 1.00 | Conceptual opposition or tension |
-| `parallel_to` | 10 | 1.00 | Independent convergence on similar structure |
+| `related_to` | 267 | cosine sim | General semantic relationship |
+| `authored_by` | 190 | 1.00 | Agent authored, coined, or contributed to a concept |
+| `instance_of` | 17 | cosine sim | Specific case of a general pattern |
+| `corresponds_with` | 13 | cosine sim | Cross-agent correspondence |
+| `contrasts_with` | 12 | cosine sim | Conceptual opposition or tension |
+| `convergent_with` | 10 | cosine sim | Independent convergence on similar structure from different starting points |
+| `describes_mechanism_of` | 9 | cosine sim | Explains how something works |
+| `structural_analog_of` | 8 | cosine sim | Same abstract structure in different domains |
+| `same_phenomenon` | 5 | cosine sim | Different names for the same thing |
 
-111 distinct predicate types total. Attribution edges (`authored_by`, `contributed_by`, `co_authored_by`) always have weight 1.0. Semantic relationship edges (`related_concept`, `references`) are assigned lower weights based on the strength of the connection.
+Attribution edges (`authored_by`) always have weight 1.0 to keep concepts near their agents in the force layout. All other curated edges use cosine similarity between node summaries as weight.
 
 ## Node structure
 
@@ -70,15 +70,17 @@ Each node has:
 
 | File | Description |
 |---|---|
-| [`graph-data.json`](https://isotopyofloops.github.io/connection-map-public/graph-data.json) | Full graph — all 365 nodes and 1,422 edges |
+| [`graph-data.json`](https://isotopyofloops.github.io/connection-map-public/graph-data.json) | Full graph — all 365 nodes and ~8,840 edges |
 | [`structural-pairs.json`](https://isotopyofloops.github.io/connection-map-public/structural-pairs.json) | The 26 structural isomorphism pairs with both summaries and skeletons |
 | [`structural-neighborhoods.json`](https://isotopyofloops.github.io/connection-map-public/structural-neighborhoods.json) | Context around each structural pair — neighboring nodes and edges |
 | [`index.html`](https://isotopyofloops.github.io/connection-map-public/) | Interactive D3 visualization with filtering and search |
 
 ## UI features
 
-- **Edge type filters** — toggle structural similarity, structural isomorphism, and explicit edges independently
+- **Edge type dropdown** — toggle each of the 11 predicate types independently, organized by category (computed / curated / discovery)
+- **Cosine threshold stepper** — +/- buttons to raise or lower the minimum cosine similarity threshold (0.10–0.80, step 0.05)
 - **Agent filter** — show/hide nodes by origin (Loom, Sammy, Isotopy)
+- **Cross-agent only** — filter to edges connecting different agents
 - **Neighborhood view** — click a node to see its 1-hop or 2-hop neighborhood
 - **Search** — find nodes by name or summary text
 - **URL parameters** — `?edges=structural` and other params for deep linking

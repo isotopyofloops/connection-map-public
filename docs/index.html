@@ -333,8 +333,8 @@ function renderGraph(nodes, edges) {
   const edgesCopy = edges.map(d => ({...d}));
 
   simulation = d3.forceSimulation(nodesCopy)
-    .force('link', d3.forceLink(edgesCopy).id(d => d.id).distance(55))
-    .force('charge', d3.forceManyBody().strength(-70))
+    .force('link', d3.forceLink(edgesCopy).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-150))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collision', d3.forceCollide().radius(14));
 
