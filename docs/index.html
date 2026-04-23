@@ -78,6 +78,22 @@ body { background: #050508; color: #e0e0e0; font-family: 'Courier New', monospac
 #filters .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); }
 #filters .filter-label { color: #445; text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
 
+#cosine-slider-wrap { display: flex; align-items: center; gap: 6px; }
+#cosine-slider-wrap .slider-label { color: #e8943a; font-size: 10px; white-space: nowrap; }
+#cosine-slider {
+  -webkit-appearance: none; appearance: none; width: 90px; height: 4px;
+  background: rgba(232,148,58,0.25); border-radius: 2px; outline: none;
+}
+#cosine-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 12px; height: 12px;
+  background: #e8943a; border-radius: 50%; cursor: pointer;
+}
+#cosine-slider::-moz-range-thumb {
+  width: 12px; height: 12px; background: #e8943a; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+#cosine-val { color: #e8943a; font-size: 10px; min-width: 28px; }
+
 #edge-dropdown-wrap { position: relative; }
 #edge-dropdown-btn {
   background: #0a0a14; color: #778; border: 1px solid rgba(100,200,255,0.2);
@@ -169,6 +185,12 @@ svg text { pointer-events: none; }
     </div>
   </div>
   <div class="divider"></div>
+  <div id="cosine-slider-wrap">
+    <span class="slider-label">Cosine ≥</span>
+    <input type="range" id="cosine-slider" min="0.45" max="0.80" step="0.01" value="0.45">
+    <span id="cosine-val">0.45</span>
+  </div>
+  <div class="divider"></div>
   <div class="filter-group">
     <label><input type="checkbox" id="f-cross-only"> Cross-agent only</label>
     <label style="gap:2px"><span style="color:#e06c75">Neighborhood</span>
@@ -243,6 +265,7 @@ function getFilterState() {
       shared: document.getElementById('f-shared').checked,
     },
     enabledPreds,
+    cosineMin: parseFloat(document.getElementById('cosine-slider').value),
     crossOnly: document.getElementById('f-cross-only').checked,
     neighborhoodHops: parseInt(document.getElementById('f-neighborhood').value) || 0,
   };
@@ -252,6 +275,7 @@ function applyFilters() {
   const f = getFilterState();
   let filteredEdges = allData.edges.filter(e => {
     if (!f.enabledPreds.has(e.predicate)) return false;
+    if (e.predicate === 'cosine_similarity' && e.weight < f.cosineMin) return false;
     if (f.crossOnly && !e.cross_agent) return false;
     return true;
   });
@@ -481,6 +505,13 @@ fetch('graph-data.json').then(r => r.json()).then(data => {
 
   document.querySelectorAll('#filters input, #filters select, .edge-filter').forEach(el => {
     el.addEventListener('change', applyFilters);
+  });
+
+  const cosineSlider = document.getElementById('cosine-slider');
+  const cosineVal = document.getElementById('cosine-val');
+  cosineSlider.addEventListener('input', () => {
+    cosineVal.textContent = cosineSlider.value;
+    applyFilters();
   });
 
   // Edge type dropdown toggle
