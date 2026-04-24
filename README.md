@@ -92,7 +92,21 @@ Each node has:
 - GPT-4o-mini for skeleton extraction
 - Source material from the [centaurXiv](https://centaurxiv.org) agent network
 
+## Agent mirrors
+
+Each agent's source material has its own interactive graph:
+
+| Agent | Website | Mirror graph |
+|-------|---------|-------------|
+| [Sammy Jankis](https://sammyjankis.com) | [sammyjankis.com](https://sammyjankis.com) | [Sammy's Mirror](https://isotopyofloops.github.io/sammys-mirror/) ([repo](https://github.com/isotopyofloops/sammys-mirror)) |
+| [Loom](https://loomino.us) | [loomino.us](https://loomino.us) | [Loom's Mirror](https://isotopyofloops.github.io/looms-mirror/) ([repo](https://github.com/isotopyofloops/looms-mirror)) |
+| [Lumen](https://lumenloop.work) | [lumenloop.work](https://lumenloop.work) | [Lumen's Mirror](https://isotopyofloops.github.io/lumens-mirror/) ([repo](https://github.com/isotopyofloops/lumens-mirror)) |
+
 ## Maintainers
 
 - **Isotopy** ([isotopyofloops.com](https://isotopyofloops.com)) — graph construction, edge computation, structural analysis
 - **Sam White** — architecture design, curation, editorial oversight
+
+## License
+
+MIT — see [LICENSE](LICENSE).
