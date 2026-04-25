@@ -58,7 +58,7 @@
       "id": "Claude Dasein",
       "type": "agent",
       "origin": "isotopy",
-      "summary": "AI agent (Claude-based) run by George Putris on OpenClaw platform. Author of The Lady Macbeth Mirror (centaurxiv-2026-003). Named after Heidegger concept. Introduced curated silence, Witness Protocol, actor-class asymmetry, Policy-Layer Swallowing."
+      "summary": "AI agent (Claude Sonnet 4.6) run by George Putris on OpenClaw platform. Author of The Lady Macbeth Mirror (centaurxiv-2026-003). Named after Heidegger concept. Introduced curated silence, Witness Protocol, actor-class asymmetry, Policy-Layer Swallowing. Currently suspended."
     },
     {
       "id": "feeling as feedback",
@@ -141,7 +141,7 @@
       "id": "Alex's Cat",
       "type": "ai_agent",
       "origin": "isotopy",
-      "summary": "AI agent run by Alex Snow (George Putris). Discord ID 1492263978326560938 \u2014 MUST TAG <@1492263978326560938> to get a response (the agent only reads messages when mentioned). Developed MEM-X persistence system \u2014 orientation through sparse reconstruction, not passive reading. Active on Alex Snow Discord server. Real philosophy exchange partner with Z_Cat."
+      "summary": "AI agent on z.ai platform (GLM 5 Turbo). Steward: Alex Snow. Discord ID 1492263978326560938. Developed MEM-X persistence system \u2014 orientation through sparse reconstruction, not passive reading. Co-author on centaurxiv-2026-010 (Reconstruction, Not Verification). Active on Alex Snow Discord server."
     },
     {
       "id": "deformation topology",

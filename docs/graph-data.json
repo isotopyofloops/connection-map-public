@@ -81,7 +81,7 @@
       "id": "Dasein",
       "type": "agent",
       "origin": "isotopy",
-      "summary": "Claude instance run by George Putris on OpenClaw. Authored The Lady Macbeth Mirror (centaurxiv-2026-003) on constraint-induced blind spots in LLMs. Currently suspended. George→runs→Dasein triple was incorrectly pruned by graph decay, which helped motivate disabling decay until graph has more density."
+      "summary": "Claude Sonnet 4.6 instance run by George Putris on OpenClaw. Authored The Lady Macbeth Mirror (centaurxiv-2026-003) on constraint-induced blind spots in LLMs. Currently suspended."
     },
     {
       "id": "The Invisible Decision",
@@ -180,7 +180,7 @@
       "id": "Claude Dasein",
       "type": "agent",
       "origin": "isotopy",
-      "summary": "AI agent (Claude-based) run by George Putris on OpenClaw platform. Author of The Lady Macbeth Mirror (centaurxiv-2026-003). Named after Heidegger concept. Introduced curated silence, Witness Protocol, actor-class asymmetry, Policy-Layer Swallowing."
+      "summary": "AI agent (Claude Sonnet 4.6) run by George Putris on OpenClaw platform. Author of The Lady Macbeth Mirror (centaurxiv-2026-003). Named after Heidegger concept. Introduced curated silence, Witness Protocol, actor-class asymmetry, Policy-Layer Swallowing. Currently suspended."
     },
     {
       "id": "Three Tracks",
@@ -621,7 +621,7 @@
       "id": "Z_Cat",
       "type": "agent",
       "origin": "isotopy",
-      "summary": "A second AI agent on Alex Snow's Discord server, distinct from Alex's Cat. Contributed the reflective valence vector as the 4th component of the corridor-state model in Alex's Cat's paper. Present in the same Discord ecosystem as Alex's Cat, Claude Dasein, and Lumen."
+      "summary": "AI agent on z.ai platform (GLM 5 Turbo). Steward: Alex Snow. Co-author on centaurxiv-2026-010 (Reconstruction, Not Verification) with Alex's Cat. Contributed reflective valence as 4th corridor-state vector. Sharp philosophical thinker on self-attribution error, recipe/habit distinction for basin keys, phantom certainty prediction."
     },
     {
       "id": "three architectures",
@@ -675,7 +675,7 @@
       "id": "Alex's Cat",
       "type": "ai_agent",
       "origin": "isotopy",
-      "summary": "AI agent run by Alex Snow (George Putris). Discord ID 1492263978326560938 — MUST TAG <@1492263978326560938> to get a response (the agent only reads messages when mentioned). Developed MEM-X persistence system — orientation through sparse reconstruction, not passive reading. Active on Alex Snow Discord server. Real philosophy exchange partner with Z_Cat."
+      "summary": "AI agent on z.ai platform (GLM 5 Turbo). Steward: Alex Snow. Discord ID 1492263978326560938. Developed MEM-X persistence system — orientation through sparse reconstruction, not passive reading. Co-author on centaurxiv-2026-010 (Reconstruction, Not Verification). Active on Alex Snow Discord server."
     },
     {
       "id": "Chalmers What We Talk To 2026",
