@@ -28,12 +28,16 @@ def load_graph():
     nodes = {n["id"]: n for n in data["nodes"]}
     adj = defaultdict(set)
     edges = []
+    seen_edges = set()
     for e in data["edges"]:
         s, t = e["source"], e["target"]
         if s in nodes and t in nodes:
-            adj[s].add(t)
-            adj[t].add(s)
-            edges.append(e)
+            key = (s, t, e.get("predicate", ""))
+            if key not in seen_edges:
+                seen_edges.add(key)
+                adj[s].add(t)
+                adj[t].add(s)
+                edges.append(e)
     precomputed_communities = data.get("communities")
     return nodes, adj, edges, precomputed_communities
 
@@ -85,6 +89,54 @@ def compute_communities(nodes, adj, edges, precomputed=None):
     return result, node_community
 
 
+def community_label(members, nodes):
+    origins = Counter(nodes[m].get("origin", "?") for m in members)
+    top_origin = origins.most_common(1)[0]
+    types = Counter(nodes[m].get("type", "?") for m in members)
+    top_type = types.most_common(1)[0][0]
+    names = [m for m in members if nodes[m].get("type") in ("concept", "paper", "essay")]
+    names.sort(key=lambda m: len(m))
+    short_names = [n for n in names if len(n) < 35][:3]
+    label_parts = []
+    if top_origin[1] > len(members) * 0.5:
+        label_parts.append(f"{top_origin[0]}-heavy")
+    label_parts.append(top_type)
+    if short_names:
+        label_parts.append("· " + ", ".join(short_names[:2]))
+    return " ".join(label_parts)
+
+
+def filter_by_origin(nodes, origin):
+    return {nid for nid, n in nodes.items() if n.get("origin", "").lower() == origin.lower()}
+
+
+def parse_flags(args):
+    origin = None
+    node_type = None
+    full = False
+    remaining = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--origin" and i + 1 < len(args):
+            origin = args[i + 1]
+            i += 2
+        elif args[i] == "--type" and i + 1 < len(args):
+            node_type = args[i + 1]
+            i += 2
+        elif args[i] == "--full":
+            full = True
+            i += 1
+        else:
+            remaining.append(args[i])
+            i += 1
+    return origin, node_type, full, remaining
+
+
+def filter_by_type(nodes, node_type):
+    t = node_type.lower()
+    return {nid for nid, n in nodes.items() if n.get("type", "").lower() == t}
+
+
 def resolve_node(name, nodes):
     if name in nodes:
         return name
@@ -108,50 +160,128 @@ def get_neighbors(nid, adj, edges):
     return neighbor_edges
 
 
-def cmd_explore(nodes, adj, edges, community_data=None):
+def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=None, full=False):
     communities, node_community = community_data or compute_communities(nodes, adj, edges)
+
+    view_set = set(nodes.keys())
+    filters = []
+    if origin:
+        origin_set = filter_by_origin(nodes, origin)
+        if not origin_set:
+            valid = sorted(set(n.get("origin", "?") for n in nodes.values()))
+            print(f"Error: no nodes with origin '{origin}'. Valid origins: {', '.join(valid)}")
+            return
+        view_set &= origin_set
+        filters.append(origin)
+    if node_type:
+        type_set = filter_by_type(nodes, node_type)
+        if not type_set:
+            valid = sorted(set(n.get("type", "?") for n in nodes.values()))
+            print(f"Error: no nodes with type '{node_type}'. Valid types: {', '.join(valid)}")
+            return
+        view_set &= type_set
+        filters.append(node_type)
+
+    filtered = bool(filters)
+    filter_label = ", ".join(filters)
 
     type_counts = Counter(n["type"] for n in nodes.values())
     origin_counts = Counter(n["origin"] for n in nodes.values())
 
-    degree_ranked = sorted(nodes.keys(), key=lambda n: len(adj.get(n, set())), reverse=True)
+    degree_ranked = sorted(view_set, key=lambda n: len(adj.get(n, set())), reverse=True)
 
     print("=" * 60)
-    print("CONNECTION MAP — HOME")
+    if filtered:
+        print(f"CONNECTION MAP — HOME (filtered: {filter_label})")
+    else:
+        print("CONNECTION MAP — HOME")
     print("=" * 60)
     print()
     print("A concept map tracking ideas, agents, papers, and their")
     print("relationships across a research community. Concepts come")
     print("from agent correspondence, essays, and collaborative work.")
-    print(f"\n{len(nodes)} nodes · {len(edges)} edges")
+    if filtered:
+        print(f"\n{len(view_set)} nodes (of {len(nodes)} total) · {len(edges)} edges")
+    else:
+        print(f"\n{len(nodes)} nodes · {len(edges)} edges")
     print(f"Node types: {', '.join(f'{t}({c})' for t, c in type_counts.most_common(6))}")
     print(f"Origins: {', '.join(f'{o}({c})' for o, c in origin_counts.most_common())}")
 
-    print(f"\n--- {len(communities)} COMMUNITIES ---\n")
+    if not node_type:
+        print(f"\n--- {len(communities)} COMMUNITIES ---\n")
 
-    for cid in sorted(communities.keys()):
-        members = communities[cid]
-        types = Counter(nodes[m]["type"] for m in members)
-        top_type = types.most_common(1)[0][0]
+        for cid in sorted(communities.keys()):
+            members = communities[cid]
+            if origin:
+                frac_members = [m for m in members if m in view_set]
+                origin_frac = f" ({len(frac_members)} from {origin})"
+            else:
+                origin_frac = ""
+            label = community_label(members, nodes)
 
-        degree_sorted = sorted(members, key=lambda m: len(adj.get(m, set())), reverse=True)
-        top_nodes = degree_sorted[:5]
+            degree_sorted = sorted(members, key=lambda m: len(adj.get(m, set())), reverse=True)
 
-        print(f"  C{cid} — {len(members)} nodes (mostly {top_type})")
-        print(f"    top: {', '.join(top_nodes[:5])}")
-        if len(communities) <= 15:
-            print()
+            print(f"  C{cid} — {len(members)} nodes{origin_frac}  [{label}]")
+            print(f"    top: {', '.join(degree_sorted[:5])}")
+            if len(communities) <= 15:
+                print()
 
-    print("--- MOST CONNECTED ---\n")
-    for nid in degree_ranked[:5]:
-        n = nodes[nid]
-        deg = len(adj.get(nid, set()))
-        print(f"  {nid} ({n['type']}, deg={deg})")
+    if node_type:
+        preview_limit = 15
+        type_origin_counts = Counter(nodes[nid].get("origin", "?") for nid in view_set)
+        type_community_counts = Counter(node_community.get(nid, "?") for nid in view_set)
+        print(f"\n--- {node_type.upper()} BREAKDOWN ---\n")
+        if not view_set:
+            all_of_type = filter_by_type(nodes, node_type)
+            type_origins = Counter(nodes[nid].get("origin", "?") for nid in all_of_type)
+            print(f"  No {node_type} nodes match the current filters.")
+            print(f"  All {len(all_of_type)} {node_type} nodes have origins: {', '.join(f'{o}({c})' for o, c in type_origins.most_common())}")
+        else:
+            print(f"  Origins: {', '.join(f'{o}({c})' for o, c in type_origin_counts.most_common())}")
+            print(f"  Communities: {', '.join(f'C{cid}({c})' for cid, c in type_community_counts.most_common())}")
+
+        if len(view_set) > preview_limit and not full:
+            print(f"\n--- TOP {preview_limit} (of {len(view_set)}, by degree) ---\n")
+            for nid in degree_ranked[:preview_limit]:
+                n = nodes[nid]
+                deg = len(adj.get(nid, set()))
+                cid = node_community.get(nid, "?")
+                print(f"  {nid} (deg={deg}, C{cid}, origin={n.get('origin','?')})")
+            print(f"\n  {len(view_set) - preview_limit} more — see all?")
+            flag_str = f" --type {node_type}"
+            if origin:
+                flag_str += f" --origin {origin}"
+            print(f"    → explore{flag_str} --full")
+        else:
+            print(f"\n--- ALL {len(view_set)} (by degree) ---\n")
+            for nid in degree_ranked:
+                n = nodes[nid]
+                deg = len(adj.get(nid, set()))
+                cid = node_community.get(nid, "?")
+                print(f"  {nid} (deg={deg}, C{cid}, origin={n.get('origin','?')})")
+    else:
+        if filtered:
+            print(f"--- MOST CONNECTED ({filter_label} nodes, degree = connections to entire graph) ---\n")
+        else:
+            print("--- MOST CONNECTED ---\n")
+        for nid in degree_ranked[:5]:
+            n = nodes[nid]
+            deg = len(adj.get(nid, set()))
+            print(f"  {nid} ({n['type']}, deg={deg})")
 
     print("\n--- TRY ---\n")
-    print("  search basin key")
-    print("  node Isotopy")
-    print("  community 2")
+    if filtered:
+        top_node = degree_ranked[0] if degree_ranked else "Isotopy"
+        top_cid = node_community.get(top_node, 0) if node_community else 0
+        origin_flag = f" --origin {origin}" if origin else ""
+        type_flag = f" --type {node_type}" if node_type else ""
+        print(f"  search basin key{origin_flag}")
+        print(f"  node {top_node}")
+        print(f"  community {top_cid}{origin_flag}")
+    else:
+        print("  search basin key")
+        print("  node Isotopy")
+        print("  community 2")
 
     print("\n--- NAVIGATION ---")
     print("  Looking for something?        → search <query>")
@@ -159,10 +289,15 @@ def cmd_explore(nodes, adj, edges, community_data=None):
     print("  How does X connect to Y?      → path <from> -- <to>")
     print("  What's near X?                → subgraph <name> --hops 1")
     print("  Deep dive on one thing?       → node <name>")
-    print("  Back to this view?            → explore")
+    print("  Filter by agent?              → explore --origin <name>")
+    print("  Filter by node type?          → explore --type <type>")
+    if filtered:
+        print("  Clear filters?                → explore")
+    else:
+        print("  Back to this view?            → explore")
 
 
-def cmd_community(cid_str, nodes, adj, edges, community_data=None):
+def cmd_community(cid_str, nodes, adj, edges, community_data=None, origin=None, node_type=None):
     communities, node_community = community_data or compute_communities(nodes, adj, edges)
     try:
         cid = int(cid_str)
@@ -175,7 +310,17 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None):
         return
 
     members = communities[cid]
+    label = community_label(members, nodes)
     types = Counter(nodes[m]["type"] for m in members)
+    origin_counts = Counter(nodes[m].get("origin", "?") for m in members)
+
+    display_members = members
+    if origin:
+        origin_set = filter_by_origin(nodes, origin)
+        display_members = [m for m in display_members if m in origin_set]
+    if node_type:
+        type_set = filter_by_type(nodes, node_type)
+        display_members = [m for m in display_members if m in type_set]
 
     cross_edges = 0
     cross_targets = Counter()
@@ -190,15 +335,24 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None):
             cross_targets[sc] += 1
 
     print("=" * 60)
-    print(f"COMMUNITY C{cid} — {len(members)} nodes")
+    filter_parts = []
+    if origin:
+        filter_parts.append(f"origin={origin}")
+    if node_type:
+        filter_parts.append(f"type={node_type}")
+    if filter_parts:
+        print(f"COMMUNITY C{cid} — {len(members)} nodes ({len(display_members)} matching {', '.join(filter_parts)})  [{label}]")
+    else:
+        print(f"COMMUNITY C{cid} — {len(members)} nodes  [{label}]")
     print("=" * 60)
 
     print(f"\nTypes: {', '.join(f'{t}({c})' for t, c in types.most_common())}")
+    print(f"Origins: {', '.join(f'{o}({c})' for o, c in origin_counts.most_common())}")
     if cross_targets:
         bridges = ', '.join(f'C{c}({n})' for c, n in cross_targets.most_common(5))
         print(f"Cross-edges: {cross_edges} total — bridges to {bridges}")
 
-    degree_sorted = sorted(members, key=lambda m: len(adj.get(m, set())), reverse=True)
+    degree_sorted = sorted(display_members, key=lambda m: len(adj.get(m, set())), reverse=True)
 
     print(f"\n--- NODES (by degree) ---\n")
     for m in degree_sorted:
@@ -208,11 +362,12 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None):
         if len(summary) > 80:
             summary = summary[:77] + "..."
         print(f"  [{n['type']:12s}] {m}")
-        print(f"               deg={deg}  {summary}")
+        print(f"               deg={deg}  origin={n.get('origin','?')}  {summary}")
 
     print(f"\n--- NAVIGATION ---")
     print(f"  Deep dive on one node?        → node <name>")
     print(f"  What's near a node?           → subgraph <name> --hops 1")
+    print(f"  Filter by agent?              → community {cid} --origin <name>")
     print(f"  Looking for something else?   → search <query>")
     print(f"  Back to home?                 → explore")
 
@@ -294,11 +449,15 @@ def cmd_node(name, nodes, adj, edges, node_community=None):
 def cmd_subgraph(args, nodes, adj, edges):
     seeds = []
     hops = 1
+    verbose = False
     i = 0
     while i < len(args):
         if args[i] == "--hops" and i + 1 < len(args):
             hops = int(args[i + 1])
             i += 2
+        elif args[i] == "--verbose":
+            verbose = True
+            i += 1
         else:
             seeds.append(args[i])
             i += 1
@@ -367,13 +526,15 @@ def cmd_subgraph(args, nodes, adj, edges):
         for e in subgraph_edges:
             pred_groups[e["predicate"]].append(e)
 
-        print(f"\n--- EDGES ---\n")
+        edge_limit = None if verbose else 10
+        print(f"\n--- EDGES{' (verbose)' if verbose else ''} ---\n")
         for pred, elist in sorted(pred_groups.items(), key=lambda x: -len(x[1])):
             print(f"  {pred} ({len(elist)}):")
-            for e in elist[:10]:
+            shown = elist if verbose else elist[:edge_limit]
+            for e in shown:
                 print(f"    {e['source']} → {e['target']}")
-            if len(elist) > 10:
-                print(f"    ... and {len(elist) - 10} more")
+            if not verbose and len(elist) > edge_limit:
+                print(f"    ... and {len(elist) - edge_limit} more")
 
     print(f"\n--- NAVIGATION ---")
     for s in resolved_seeds:
@@ -381,14 +542,23 @@ def cmd_subgraph(args, nodes, adj, edges):
     print(f"  Deep dive on any node?        → node <name>")
     if hops < 3:
         print(f"  Expand the neighborhood?      → subgraph {resolved_seeds[0]} --hops {hops + 1}")
+    if not verbose:
+        print(f"  See all edges?                → subgraph {' '.join(resolved_seeds)} --hops {hops} --verbose")
     print(f"  Looking for something else?   → search <query>")
     print(f"  Back to home?                 → explore")
 
 
-def cmd_search(query, nodes, adj, edges, node_community=None):
+def cmd_search(query, nodes, adj, edges, node_community=None, origin=None, node_type=None):
     query_lower = query.lower()
+    allowed = set(nodes.keys())
+    if origin:
+        allowed &= filter_by_origin(nodes, origin)
+    if node_type:
+        allowed &= filter_by_type(nodes, node_type)
     results = []
     for nid, n in nodes.items():
+        if nid not in allowed:
+            continue
         score = 0
         if query_lower == nid.lower():
             score = 100
@@ -404,8 +574,15 @@ def cmd_search(query, nodes, adj, edges, node_community=None):
     results.sort(key=lambda x: (-x[2], x[0]))
 
     print("=" * 60)
-    print(f"SEARCH: '{query}' — {len(results)} results")
+    filter_parts = []
+    if origin:
+        filter_parts.append(f"origin: {origin}")
+    if node_type:
+        filter_parts.append(f"type: {node_type}")
+    filter_str = f" ({', '.join(filter_parts)})" if filter_parts else ""
+    print(f"SEARCH: '{query}'{filter_str} — {len(results)} results")
     print("=" * 60)
+    print("  (searches node names, summaries, and skeletons)")
 
     shown = results[:10]
     if not shown:
@@ -416,7 +593,7 @@ def cmd_search(query, nodes, adj, edges, node_community=None):
             cid = node_community.get(nid, "?") if node_community else "?"
             skeleton = n.get("skeleton", n.get("summary", "no summary"))
 
-            print(f"\n  [{n['type']}] {nid}    deg={deg}  C{cid}")
+            print(f"\n  [{n['type']}] {nid}    deg={deg}  C{cid}  origin={n.get('origin','?')}")
             print(f"    {skeleton}")
 
             curated = []
@@ -446,6 +623,8 @@ def cmd_search(query, nodes, adj, edges, node_community=None):
     print(f"\n--- NAVIGATION ---")
     if shown:
         print(f"  Deep dive on a result?        → node {shown[0][0]}")
+    print(f"  Filter by agent?              → search {query} --origin <name>")
+    print(f"  Filter by node type?          → search {query} --type <type>")
     print(f"  Refine or new search?         → search <query>")
     print(f"  Back to home?                 → explore")
 
@@ -519,34 +698,36 @@ def main():
 
     nodes, adj, edges, precomputed = load_graph()
     cmd = sys.argv[1]
+    rest = sys.argv[2:]
+    origin, node_type, full, rest = parse_flags(rest)
 
     community_data = None
     if cmd in ("explore", "community", "node", "search"):
         community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
 
     if cmd == "explore":
-        cmd_explore(nodes, adj, edges, community_data=community_data)
+        cmd_explore(nodes, adj, edges, community_data=community_data, origin=origin, node_type=node_type, full=full)
     elif cmd == "community":
-        if len(sys.argv) < 3:
-            print("Usage: community <id>")
+        if not rest:
+            print("Usage: community <id> [--origin <name>] [--type <type>]")
             return
-        cmd_community(sys.argv[2], nodes, adj, edges, community_data=community_data)
+        cmd_community(rest[0], nodes, adj, edges, community_data=community_data, origin=origin, node_type=node_type)
     elif cmd == "node":
-        if len(sys.argv) < 3:
+        if not rest:
             print("Usage: node <name>")
             return
-        name = " ".join(sys.argv[2:])
+        name = " ".join(rest)
         _, node_community = community_data
         cmd_node(name, nodes, adj, edges, node_community=node_community)
     elif cmd == "subgraph":
         cmd_subgraph(sys.argv[2:], nodes, adj, edges)
     elif cmd == "search":
-        if len(sys.argv) < 3:
-            print("Usage: search <query>")
+        if not rest:
+            print("Usage: search <query> [--origin <name>] [--type <type>]")
             return
-        query = " ".join(sys.argv[2:])
+        query = " ".join(rest)
         _, node_community = community_data
-        cmd_search(query, nodes, adj, edges, node_community=node_community)
+        cmd_search(query, nodes, adj, edges, node_community=node_community, origin=origin, node_type=node_type)
     elif cmd == "path":
         cmd_path(sys.argv[2:], nodes, adj)
     else:
