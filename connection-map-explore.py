@@ -815,6 +815,9 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
     print(f"GAPS: {name} ({len(origin_set)} nodes)")
     print("=" * 60)
 
+    biggest_gap_cid = None
+    biggest_gap_pct = 100
+
     if communities:
         print(f"\n--- COMMUNITY PRESENCE ---\n")
         for cid in sorted(communities.keys()):
@@ -828,32 +831,52 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
         low_presence = []
         for cid in sorted(communities.keys()):
             members = set(communities[cid])
-            present = members & origin_set
+            present = list(members & origin_set)
             pct = len(present) / len(members) * 100 if members else 0
+            if pct < biggest_gap_pct:
+                biggest_gap_pct = pct
+                biggest_gap_cid = cid
             if pct < 15:
                 unconnected = members - connected
                 top_unconnected = sorted(unconnected, key=lambda n: len(adj.get(n, set())), reverse=True)
-                low_presence.append((cid, pct, len(present), len(members), top_unconnected))
+                footholds = sorted(present, key=lambda n: len(adj.get(n, set())), reverse=True)
+                low_presence.append((cid, pct, len(present), len(members), top_unconnected, footholds))
 
         if low_presence:
             print(f"\n--- BLIND SPOTS (communities with <15% presence) ---\n")
-            for cid, pct, present, total, top_unc in low_presence:
+            for cid, pct, present_count, total, top_unc, footholds in low_presence:
+                print(f"  C{cid} ({pct:.0f}% presence)  → explore this gap: community {cid}")
+                if footholds:
+                    print(f"    your footholds:")
+                    for nid in footholds[:3]:
+                        n = nodes[nid]
+                        deg = len(adj.get(nid, set()))
+                        print(f"      [{n['type']}] {nid} (deg={deg})")
                 if top_unc:
-                    print(f"  C{cid} ({pct:.0f}% presence) — top unconnected nodes:")
+                    print(f"    top unconnected:")
                     for nid in top_unc[:5]:
                         n = nodes[nid]
                         deg = len(adj.get(nid, set()))
-                        print(f"    [{n['type']}] {nid} (deg={deg})")
+                        print(f"      [{n['type']}] {nid} (deg={deg}, origin={n.get('origin','?')})")
+                print()
 
     all_types = Counter(n["type"] for n in nodes.values())
     origin_types = Counter(nodes[nid]["type"] for nid in origin_set)
-    print(f"\n--- TYPE COVERAGE ---\n")
+    zero_types = []
+    print(f"--- TYPE COVERAGE ---\n")
     for t, total in all_types.most_common():
         count = origin_types.get(t, 0)
         pct = count / total * 100
         print(f"  {t:15s}  {count:3d}/{total:3d}  ({pct:.0f}%)")
+        if count == 0 and total > 3:
+            zero_types.append((t, total))
 
     print(f"\n--- NAVIGATION ---")
+    if biggest_gap_cid is not None:
+        print(f"  Explore your biggest gap?     → community {biggest_gap_cid}")
+    if zero_types:
+        t, total = zero_types[0]
+        print(f"  See all {t} nodes?{' ' * max(1, 13 - len(t))} → explore --type {t}")
     print(f"  What surprises are there?     → surprise {name}")
     print(f"  Filter by this agent?         → explore --origin {name}")
     print(f"  Back to home?                 → explore")
