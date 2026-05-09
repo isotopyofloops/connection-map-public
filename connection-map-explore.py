@@ -12,6 +12,8 @@ Usage:
     python3 connection-map-explore.py subgraph <seed> [seed2...] [--hops N]
     python3 connection-map-explore.py search <query>
     python3 connection-map-explore.py path <from> -- <to>
+    python3 connection-map-explore.py surprise <name>
+    python3 connection-map-explore.py gaps <name or origin>
 """
 
 import json
@@ -691,6 +693,181 @@ def cmd_path(args, nodes, adj):
     print(f"  Back to home?                 → explore")
 
 
+def get_similarity_lookup(edges):
+    sim = {}
+    for e in edges:
+        if e["predicate"] == "cosine_similarity":
+            key = tuple(sorted([e["source"], e["target"]]))
+            sim[key] = e.get("weight", 0)
+    return sim
+
+
+def cmd_surprise(name, nodes, adj, edges, node_community=None):
+    resolved = resolve_node(name, nodes)
+    if not resolved:
+        print(f"Error: no node matching '{name}'")
+        print("  Try: search <keyword>")
+        return
+
+    sim_lookup = get_similarity_lookup(edges)
+
+    curated_neighbors = {}
+    for e in edges:
+        if e["predicate"] == "cosine_similarity":
+            continue
+        if e["source"] == resolved:
+            nb = e["target"]
+            curated_neighbors.setdefault(nb, []).append(f"→ {e['predicate']}")
+        elif e["target"] == resolved:
+            nb = e["source"]
+            curated_neighbors.setdefault(nb, []).append(f"← {e['predicate']}")
+
+    with_sim = []
+    without_sim = []
+    for nb, preds in curated_neighbors.items():
+        key = tuple(sorted([resolved, nb]))
+        s = sim_lookup.get(key)
+        if s is not None:
+            with_sim.append((nb, s, preds))
+        else:
+            without_sim.append((nb, preds))
+
+    with_sim.sort(key=lambda x: x[1])
+
+    high_sim_no_edge = []
+    for (a, b), s in sim_lookup.items():
+        if a == resolved and b not in curated_neighbors:
+            high_sim_no_edge.append((b, s))
+        elif b == resolved and a not in curated_neighbors:
+            high_sim_no_edge.append((a, s))
+    high_sim_no_edge.sort(key=lambda x: -x[1])
+
+    cid = node_community.get(resolved, "?") if node_community else "?"
+
+    print("=" * 60)
+    print(f"SURPRISE: {resolved}")
+    print("=" * 60)
+    print(f"\n  node: {resolved} ({nodes[resolved].get('type','?')}, C{cid})")
+    print(f"  curated neighbors: {len(curated_neighbors)}")
+    print(f"  with similarity score: {len(with_sim)}")
+
+    if with_sim:
+        print(f"\n--- UNEXPECTED CONNECTIONS (curated edge + low similarity) ---\n")
+        for nb, s, preds in with_sim[:10]:
+            nb_type = nodes[nb]["type"] if nb in nodes else "?"
+            nb_cid = node_community.get(nb, "?") if node_community else "?"
+            print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
+            for p in preds[:3]:
+                print(f"         {p}")
+    else:
+        print(f"\n  No curated neighbors have similarity scores.")
+        print(f"  (Similarity edges cover {len(sim_lookup)} pairs in the graph.)")
+
+    if without_sim:
+        print(f"\n--- NO SIMILARITY SCORE ({len(without_sim)} curated neighbors) ---\n")
+        shown = without_sim[:5]
+        for nb, preds in shown:
+            nb_type = nodes[nb]["type"] if nb in nodes else "?"
+            print(f"  [{nb_type}] {nb}")
+            for p in preds[:2]:
+                print(f"         {p}")
+        if len(without_sim) > 5:
+            print(f"  ... and {len(without_sim) - 5} more")
+
+    if high_sim_no_edge:
+        print(f"\n--- SIMILAR BUT UNCONNECTED (high similarity, no curated edge) ---\n")
+        for nb, s in high_sim_no_edge[:10]:
+            nb_type = nodes[nb]["type"] if nb in nodes else "?"
+            nb_cid = node_community.get(nb, "?") if node_community else "?"
+            print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
+
+    print(f"\n--- NAVIGATION ---")
+    if with_sim:
+        print(f"  Inspect a surprise?           → node {with_sim[0][0]}")
+    if high_sim_no_edge:
+        print(f"  Inspect a missing link?       → node {high_sim_no_edge[0][0]}")
+    print(f"  What's missing entirely?      → gaps {resolved}")
+    print(f"  Back to node detail?          → node {resolved}")
+    print(f"  Back to home?                 → explore")
+
+
+def cmd_gaps(name, nodes, adj, edges, community_data=None):
+    communities, node_community = community_data or ({}, {})
+
+    is_origin = name.lower() in {n.get("origin", "").lower() for n in nodes.values()}
+
+    if is_origin:
+        origin_set = filter_by_origin(nodes, name)
+        label = name
+    else:
+        resolved = resolve_node(name, nodes)
+        if not resolved:
+            print(f"Error: no node or origin matching '{name}'")
+            return
+        origin_set = {resolved}
+        label = resolved
+
+    connected = set()
+    for nid in origin_set:
+        connected |= adj.get(nid, set())
+    connected |= origin_set
+
+    print("=" * 60)
+    if is_origin:
+        print(f"GAPS: {label} (origin, {len(origin_set)} nodes)")
+    else:
+        print(f"GAPS: {label}")
+    print("=" * 60)
+
+    if communities:
+        print(f"\n--- COMMUNITY PRESENCE ---\n")
+        for cid in sorted(communities.keys()):
+            members = set(communities[cid])
+            present = members & origin_set
+            connected_in = members & connected - origin_set
+            absent = members - connected
+            pct = len(present) / len(members) * 100 if members else 0
+            bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
+            label_str = community_label(list(members), nodes)
+            print(f"  C{cid} {bar} {len(present)}/{len(members)} nodes ({pct:.0f}%)  [{label_str}]")
+
+        low_presence = []
+        for cid in sorted(communities.keys()):
+            members = set(communities[cid])
+            present = members & origin_set
+            pct = len(present) / len(members) * 100 if members else 0
+            if pct < 15:
+                unconnected = members - connected
+                top_unconnected = sorted(unconnected, key=lambda n: len(adj.get(n, set())), reverse=True)
+                low_presence.append((cid, pct, len(present), len(members), top_unconnected))
+
+        if low_presence:
+            print(f"\n--- BLIND SPOTS (communities with <15% presence) ---\n")
+            for cid, pct, present, total, top_unc in low_presence:
+                if top_unc:
+                    print(f"  C{cid} ({pct:.0f}% presence) — top unconnected nodes:")
+                    for nid in top_unc[:5]:
+                        n = nodes[nid]
+                        deg = len(adj.get(nid, set()))
+                        print(f"    [{n['type']}] {nid} (deg={deg})")
+
+    all_types = Counter(n["type"] for n in nodes.values())
+    origin_types = Counter(nodes[nid]["type"] for nid in origin_set)
+    print(f"\n--- TYPE COVERAGE ---\n")
+    for t, total in all_types.most_common():
+        count = origin_types.get(t, 0)
+        pct = count / total * 100
+        print(f"  {t:15s}  {count:3d}/{total:3d}  ({pct:.0f}%)")
+
+    print(f"\n--- NAVIGATION ---")
+    print(f"  What surprises are there?     → surprise {name}")
+    if is_origin:
+        print(f"  Filter by this agent?         → explore --origin {name}")
+    else:
+        print(f"  Back to node detail?          → node {name}")
+    print(f"  Back to home?                 → explore")
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
@@ -730,9 +907,26 @@ def main():
         cmd_search(query, nodes, adj, edges, node_community=node_community, origin=origin, node_type=node_type)
     elif cmd == "path":
         cmd_path(sys.argv[2:], nodes, adj)
+    elif cmd == "surprise":
+        if not rest:
+            print("Usage: surprise <name>")
+            return
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        name = " ".join(rest)
+        _, node_community = community_data
+        cmd_surprise(name, nodes, adj, edges, node_community=node_community)
+    elif cmd == "gaps":
+        if not rest:
+            print("Usage: gaps <name or origin>")
+            return
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        name = " ".join(rest)
+        cmd_gaps(name, nodes, adj, edges, community_data=community_data)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: explore, community, node, subgraph, search, path")
+        print("Commands: explore, community, node, subgraph, search, path, surprise, gaps")
         print("Run with --help for usage.")
 
 
