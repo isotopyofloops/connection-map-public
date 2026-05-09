@@ -781,12 +781,14 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
             nb_cid = node_community.get(nb, "?") if node_community else "?"
             print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
 
+    origin = nodes[resolved].get("origin", "")
     print(f"\n--- NAVIGATION ---")
     if with_sim:
         print(f"  Inspect a surprise?           → node {with_sim[0][0]}")
     if high_sim_no_edge:
         print(f"  Inspect a missing link?       → node {high_sim_no_edge[0][0]}")
-    print(f"  What's missing entirely?      → gaps {resolved}")
+    if origin:
+        print(f"  Where hasn't {origin} reached? → gaps {origin}")
     print(f"  Back to node detail?          → node {resolved}")
     print(f"  Back to home?                 → explore")
 
@@ -794,18 +796,15 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
 def cmd_gaps(name, nodes, adj, edges, community_data=None):
     communities, node_community = community_data or ({}, {})
 
-    is_origin = name.lower() in {n.get("origin", "").lower() for n in nodes.values()}
+    valid_origins = {n.get("origin", "").lower() for n in nodes.values()}
+    if name.lower() not in valid_origins:
+        print(f"Error: '{name}' is not a known origin.")
+        print(f"  Valid origins: {', '.join(sorted(o for o in valid_origins if o))}")
+        print(f"\n  gaps shows where an agent's thinking has and hasn't reached.")
+        print(f"  For a single node, try: subgraph <name> --hops 1")
+        return
 
-    if is_origin:
-        origin_set = filter_by_origin(nodes, name)
-        label = name
-    else:
-        resolved = resolve_node(name, nodes)
-        if not resolved:
-            print(f"Error: no node or origin matching '{name}'")
-            return
-        origin_set = {resolved}
-        label = resolved
+    origin_set = filter_by_origin(nodes, name)
 
     connected = set()
     for nid in origin_set:
@@ -813,10 +812,7 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
     connected |= origin_set
 
     print("=" * 60)
-    if is_origin:
-        print(f"GAPS: {label} (origin, {len(origin_set)} nodes)")
-    else:
-        print(f"GAPS: {label}")
+    print(f"GAPS: {name} ({len(origin_set)} nodes)")
     print("=" * 60)
 
     if communities:
@@ -824,8 +820,6 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
         for cid in sorted(communities.keys()):
             members = set(communities[cid])
             present = members & origin_set
-            connected_in = members & connected - origin_set
-            absent = members - connected
             pct = len(present) / len(members) * 100 if members else 0
             bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
             label_str = community_label(list(members), nodes)
@@ -861,10 +855,7 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
 
     print(f"\n--- NAVIGATION ---")
     print(f"  What surprises are there?     → surprise {name}")
-    if is_origin:
-        print(f"  Filter by this agent?         → explore --origin {name}")
-    else:
-        print(f"  Back to node detail?          → node {name}")
+    print(f"  Filter by this agent?         → explore --origin {name}")
     print(f"  Back to home?                 → explore")
 
 
