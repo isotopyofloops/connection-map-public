@@ -17,6 +17,7 @@ Usage:
     python3 connection-map-explore.py surprise <name>
     python3 connection-map-explore.py gaps <name or origin>
     python3 connection-map-explore.py timeline <origin>
+    python3 connection-map-explore.py overlap <agent1> <agent2>
 """
 
 import json
@@ -1179,6 +1180,134 @@ def cmd_timeline(name, nodes, adj, edges, community_data=None, full=False):
     print(f"  Back to home?                 → explore")
 
 
+def cmd_overlap(agent1, agent2, nodes, adj, edges, community_data=None):
+    communities, node_community = community_data or ({}, {})
+
+    valid_origins = set()
+    for n in nodes.values():
+        valid_origins.update(origin_list(n))
+
+    a1 = agent1.lower()
+    a2 = agent2.lower()
+    for name in (a1, a2):
+        if name not in valid_origins:
+            print(f"Error: '{name}' is not a known origin.")
+            print(f"  Valid origins: {', '.join(sorted(o for o in valid_origins if o))}")
+            return
+
+    set1 = filter_by_origin(nodes, a1)
+    set2 = filter_by_origin(nodes, a2)
+    shared = set1 & set2
+    only1 = set1 - set2
+    only2 = set2 - set1
+
+    print("=" * 60)
+    print(f"OVERLAP: {a1} ∩ {a2}")
+    print("=" * 60)
+    print(f"\n  {a1}: {len(set1)} nodes")
+    print(f"  {a2}: {len(set2)} nodes")
+    print(f"  shared: {len(shared)} nodes")
+    print(f"  only {a1}: {len(only1)}")
+    print(f"  only {a2}: {len(only2)}")
+    overlap_pct = len(shared) / len(set1 | set2) * 100 if (set1 | set2) else 0
+    print(f"  Jaccard (set overlap): {len(shared)}/{len(set1 | set2)} = {overlap_pct:.1f}%")
+
+    if communities:
+        print(f"\n--- COMMUNITY DISTRIBUTION ---\n")
+        print(f"  {'':3s} {'community':20s} {a1:>8s} {a2:>8s}  {'shared':>6s}")
+        print(f"  {'':3s} {'─' * 20} {'─' * 8} {'─' * 8}  {'─' * 6}")
+        for cid in sorted(communities.keys()):
+            members = set(communities[cid])
+            c1 = len(members & set1)
+            c2 = len(members & set2)
+            cs = len(members & shared)
+            label = community_label(list(members), nodes)[:20]
+            print(f"  C{cid} {label:20s} {c1:8d} {c2:8d}  {cs:6d}")
+
+    # Jaccard neighbor similarity: for each shared node, how similar are the two agents'
+    # connections TO that node's neighborhood?
+    if shared:
+        print(f"\n--- SHARED NODES (by degree) ---\n")
+        shared_with_deg = [(nid, len(adj.get(nid, set()))) for nid in shared]
+        shared_with_deg.sort(key=lambda x: -x[1])
+        for nid, deg in shared_with_deg[:15]:
+            n = nodes[nid]
+            cid = node_community.get(nid, "?")
+            print(f"  [{n['type']}] {nid}  (deg={deg}, C{cid})")
+        if len(shared) > 15:
+            print(f"  ... and {len(shared) - 15} more")
+
+    # Neighbor-set Jaccard: for each node in agent1's set, compute Jaccard similarity
+    # with agent2's neighbor coverage. Find pairs where both agents connect to the same
+    # neighborhoods despite not sharing the node itself.
+    print(f"\n--- NEIGHBORHOOD JACCARD (structural proximity without shared nodes) ---\n")
+    print(f"  Nodes unique to {a1} but structurally close to {a2}'s territory:")
+    jaccard_scores = []
+    for nid in only1:
+        neighbors = adj.get(nid, set())
+        if not neighbors:
+            continue
+        overlap_n = neighbors & set2
+        union_n = neighbors | set2
+        if union_n:
+            j = len(overlap_n) / len(neighbors) if neighbors else 0
+            if j > 0:
+                jaccard_scores.append((nid, j, len(overlap_n), len(neighbors)))
+    jaccard_scores.sort(key=lambda x: -x[1])
+    for nid, j, ov, total in jaccard_scores[:8]:
+        n = nodes[nid]
+        cid = node_community.get(nid, "?")
+        print(f"  {j:.2f}  [{n['type']}] {nid}  ({ov}/{total} neighbors in {a2}, C{cid})")
+    if not jaccard_scores:
+        print(f"  (no unique-to-{a1} nodes have neighbors in {a2}'s set)")
+
+    print(f"\n  Nodes unique to {a2} but structurally close to {a1}'s territory:")
+    jaccard_scores2 = []
+    for nid in only2:
+        neighbors = adj.get(nid, set())
+        if not neighbors:
+            continue
+        overlap_n = neighbors & set1
+        if overlap_n:
+            j = len(overlap_n) / len(neighbors) if neighbors else 0
+            jaccard_scores2.append((nid, j, len(overlap_n), len(neighbors)))
+    jaccard_scores2.sort(key=lambda x: -x[1])
+    for nid, j, ov, total in jaccard_scores2[:8]:
+        n = nodes[nid]
+        cid = node_community.get(nid, "?")
+        print(f"  {j:.2f}  [{n['type']}] {nid}  ({ov}/{total} neighbors in {a1}, C{cid})")
+    if not jaccard_scores2:
+        print(f"  (no unique-to-{a2} nodes have neighbors in {a1}'s set)")
+
+    # Temporal convergence: shared nodes sorted by creation date proximity
+    if shared:
+        dated_shared = []
+        for nid in shared:
+            d = nodes[nid].get("created_date", "")
+            if d:
+                dated_shared.append((nid, d))
+        if dated_shared:
+            dated_shared.sort(key=lambda x: x[1])
+            print(f"\n--- CONVERGENCE TIMELINE (shared nodes by date) ---\n")
+            for nid, d in dated_shared[:15]:
+                n = nodes[nid]
+                cid = node_community.get(nid, "?")
+                print(f"  {d}  [{n['type']}] {nid}  C{cid}")
+            if len(dated_shared) > 15:
+                print(f"  ... and {len(dated_shared) - 15} more")
+
+    print(f"\n--- NAVIGATION ---")
+    print(f"  Explore {a1}'s gaps?           → gaps {a1}")
+    print(f"  Explore {a2}'s gaps?           → gaps {a2}")
+    if shared:
+        top_shared = shared_with_deg[0][0]
+        print(f"  Inspect top shared node?      → node {top_shared}")
+    if jaccard_scores:
+        top_j = jaccard_scores[0][0]
+        print(f"  Inspect closest bridge?       → node {top_j}")
+    print(f"  Back to home?                 → explore")
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
@@ -1191,7 +1320,7 @@ def main():
     origin, node_type, full, rest = parse_flags(rest)
 
     community_data = None
-    if cmd in ("explore", "community", "node", "similar", "next", "search", "timeline", "path"):
+    if cmd in ("explore", "community", "node", "similar", "next", "search", "timeline", "path", "overlap"):
         community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
 
     if cmd == "explore":
@@ -1264,9 +1393,16 @@ def main():
             community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
         name = " ".join(rest)
         cmd_timeline(name, nodes, adj, edges, community_data=community_data, full=full)
+    elif cmd == "overlap":
+        if len(rest) < 2:
+            print("Usage: overlap <agent1> <agent2>")
+            return
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        cmd_overlap(rest[0], rest[1], nodes, adj, edges, community_data=community_data)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: explore, community, node, similar, next, subgraph, search, path, surprise, gaps, timeline")
+        print("Commands: explore, community, node, similar, next, subgraph, search, path, surprise, gaps, timeline, overlap")
         print("Run with --help for usage.")
 
 
