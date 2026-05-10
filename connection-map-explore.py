@@ -93,8 +93,11 @@ def compute_communities(nodes, adj, edges, precomputed=None):
 
 
 def community_label(members, nodes):
-    origins = Counter(nodes[m].get("origin", "?") for m in members)
-    top_origin = origins.most_common(1)[0]
+    origins = Counter()
+    for m in members:
+        for o in origin_list(nodes[m]):
+            origins[o] += 1
+    top_origin = origins.most_common(1)[0] if origins else ("?", 0)
     types = Counter(nodes[m].get("type", "?") for m in members)
     top_type = types.most_common(1)[0][0]
     names = [m for m in members if nodes[m].get("type") in ("concept", "paper", "essay")]
@@ -109,8 +112,26 @@ def community_label(members, nodes):
     return " ".join(label_parts)
 
 
+def origin_str(node):
+    o = node.get("origin", "?")
+    if isinstance(o, list):
+        return "+".join(o)
+    return o
+
+
+def origin_list(node):
+    o = node.get("origin", "")
+    if isinstance(o, list):
+        return [x.lower() for x in o]
+    return [o.lower()] if o else []
+
+
+def node_has_origin(node, origin):
+    return origin.lower() in origin_list(node)
+
+
 def filter_by_origin(nodes, origin):
-    return {nid for nid, n in nodes.items() if n.get("origin", "").lower() == origin.lower()}
+    return {nid for nid, n in nodes.items() if node_has_origin(n, origin)}
 
 
 def parse_flags(args):
@@ -171,7 +192,10 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
     if origin:
         origin_set = filter_by_origin(nodes, origin)
         if not origin_set:
-            valid = sorted(set(n.get("origin", "?") for n in nodes.values()))
+            valid_set = set()
+            for n in nodes.values():
+                valid_set.update(origin_list(n))
+            valid = sorted(valid_set)
             print(f"Error: no nodes with origin '{origin}'. Valid origins: {', '.join(valid)}")
             return
         view_set &= origin_set
@@ -189,7 +213,10 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
     filter_label = ", ".join(filters)
 
     type_counts = Counter(n["type"] for n in nodes.values())
-    origin_counts = Counter(n["origin"] for n in nodes.values())
+    origin_counts = Counter()
+    for n in nodes.values():
+        for o in origin_list(n):
+            origin_counts[o] += 1
 
     degree_ranked = sorted(view_set, key=lambda n: len(adj.get(n, set())), reverse=True)
 
@@ -231,12 +258,18 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
 
     if node_type:
         preview_limit = 15
-        type_origin_counts = Counter(nodes[nid].get("origin", "?") for nid in view_set)
+        type_origin_counts = Counter()
+        for nid in view_set:
+            for o in origin_list(nodes[nid]):
+                type_origin_counts[o] += 1
         type_community_counts = Counter(node_community.get(nid, "?") for nid in view_set)
         print(f"\n--- {node_type.upper()} BREAKDOWN ---\n")
         if not view_set:
             all_of_type = filter_by_type(nodes, node_type)
-            type_origins = Counter(nodes[nid].get("origin", "?") for nid in all_of_type)
+            type_origins = Counter()
+            for nid in all_of_type:
+                for o in origin_list(nodes[nid]):
+                    type_origins[o] += 1
             print(f"  No {node_type} nodes match the current filters.")
             print(f"  All {len(all_of_type)} {node_type} nodes have origins: {', '.join(f'{o}({c})' for o, c in type_origins.most_common())}")
         else:
@@ -249,7 +282,7 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
                 n = nodes[nid]
                 deg = len(adj.get(nid, set()))
                 cid = node_community.get(nid, "?")
-                print(f"  {nid} (deg={deg}, C{cid}, origin={n.get('origin','?')})")
+                print(f"  {nid} (deg={deg}, C{cid}, origin={origin_str(n)})")
             print(f"\n  {len(view_set) - preview_limit} more — see all?")
             flag_str = f" --type {node_type}"
             if origin:
@@ -261,7 +294,7 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
                 n = nodes[nid]
                 deg = len(adj.get(nid, set()))
                 cid = node_community.get(nid, "?")
-                print(f"  {nid} (deg={deg}, C{cid}, origin={n.get('origin','?')})")
+                print(f"  {nid} (deg={deg}, C{cid}, origin={origin_str(n)})")
     else:
         if filtered:
             print(f"--- MOST CONNECTED ({filter_label} nodes, degree = connections to entire graph) ---\n")
@@ -315,7 +348,10 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None, origin=None, 
     members = communities[cid]
     label = community_label(members, nodes)
     types = Counter(nodes[m]["type"] for m in members)
-    origin_counts = Counter(nodes[m].get("origin", "?") for m in members)
+    origin_counts = Counter()
+    for m in members:
+        for o in origin_list(nodes[m]):
+            origin_counts[o] += 1
 
     display_members = members
     if origin:
@@ -365,7 +401,7 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None, origin=None, 
         if len(summary) > 80:
             summary = summary[:77] + "..."
         print(f"  [{n['type']:12s}] {m}")
-        print(f"               deg={deg}  origin={n.get('origin','?')}  {summary}")
+        print(f"               deg={deg}  origin={origin_str(n)}  {summary}")
 
     print(f"\n--- NAVIGATION ---")
     print(f"  Deep dive on one node?        → node <name>")
@@ -393,7 +429,7 @@ def cmd_node(name, nodes, adj, edges, node_community=None):
     print("=" * 60)
 
     print(f"\n  type:    {n.get('type', '?')}")
-    print(f"  origin:  {n.get('origin', '?')}")
+    print(f"  origin:  {origin_str(n)}")
     print(f"  degree:  {deg}")
     if cid is not None:
         print(f"  community: C{cid}")
@@ -596,7 +632,7 @@ def cmd_search(query, nodes, adj, edges, node_community=None, origin=None, node_
             cid = node_community.get(nid, "?") if node_community else "?"
             skeleton = n.get("skeleton", n.get("summary", "no summary"))
 
-            print(f"\n  [{n['type']}] {nid}    deg={deg}  C{cid}  origin={n.get('origin','?')}")
+            print(f"\n  [{n['type']}] {nid}    deg={deg}  C{cid}  origin={origin_str(n)}")
             print(f"    {skeleton}")
 
             curated = []
@@ -782,14 +818,15 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
             nb_cid = node_community.get(nb, "?") if node_community else "?"
             print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
 
-    origin = nodes[resolved].get("origin", "")
+    origins = origin_list(nodes[resolved])
     print(f"\n--- NAVIGATION ---")
     if with_sim:
         print(f"  Inspect a surprise?           → node {with_sim[0][0]}")
     if high_sim_no_edge:
         print(f"  Inspect a missing link?       → node {high_sim_no_edge[0][0]}")
-    if origin:
-        print(f"  Where hasn't {origin} reached? → gaps {origin}")
+    if origins:
+        first_origin = origins[0]
+        print(f"  Where hasn't {first_origin} reached? → gaps {first_origin}")
     print(f"  Back to node detail?          → node {resolved}")
     print(f"  Back to home?                 → explore")
 
@@ -797,7 +834,9 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
 def cmd_gaps(name, nodes, adj, edges, community_data=None):
     communities, node_community = community_data or ({}, {})
 
-    valid_origins = {n.get("origin", "").lower() for n in nodes.values()}
+    valid_origins = set()
+    for n in nodes.values():
+        valid_origins.update(origin_list(n))
     if name.lower() not in valid_origins:
         print(f"Error: '{name}' is not a known origin.")
         print(f"  Valid origins: {', '.join(sorted(o for o in valid_origins if o))}")
@@ -858,7 +897,7 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
                     for nid in top_unc[:5]:
                         n = nodes[nid]
                         deg = len(adj.get(nid, set()))
-                        print(f"      [{n['type']}] {nid} (deg={deg}, origin={n.get('origin','?')})")
+                        print(f"      [{n['type']}] {nid} (deg={deg}, origin={origin_str(n)})")
                 print()
 
     all_types = Counter(n["type"] for n in nodes.values())
@@ -886,7 +925,9 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
 def cmd_timeline(name, nodes, adj, edges, community_data=None, full=False):
     communities, node_community = community_data or ({}, {})
 
-    valid_origins = {n.get("origin", "").lower() for n in nodes.values()}
+    valid_origins = set()
+    for n in nodes.values():
+        valid_origins.update(origin_list(n))
     if name.lower() not in valid_origins:
         print(f"Error: '{name}' is not a known origin.")
         print(f"  Valid origins: {', '.join(sorted(o for o in valid_origins if o))}")
