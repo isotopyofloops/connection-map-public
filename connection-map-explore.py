@@ -9,6 +9,8 @@ Usage:
     python3 connection-map-explore.py explore
     python3 connection-map-explore.py community <id>
     python3 connection-map-explore.py node <name>
+    python3 connection-map-explore.py similar <name> [page]
+    python3 connection-map-explore.py next
     python3 connection-map-explore.py subgraph <seed> [seed2...] [--hops N]
     python3 connection-map-explore.py search <query>
     python3 connection-map-explore.py path <from> -- <to>
@@ -23,6 +25,22 @@ import os
 from collections import Counter, defaultdict
 
 DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "graph-data.json")
+STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".explore-state.json")
+
+PAGE_SIZE = 10
+
+
+def save_pagination_state(node_name, page, total):
+    state = {"node": node_name, "page": page, "total": total}
+    with open(STATE_PATH, "w") as f:
+        json.dump(state, f)
+
+
+def load_pagination_state():
+    if not os.path.exists(STATE_PATH):
+        return None
+    with open(STATE_PATH) as f:
+        return json.load(f)
 
 
 def load_graph():
@@ -481,21 +499,122 @@ def cmd_node(name, nodes, adj, edges, node_community=None, neighbor_index=None):
 
     if sim_neighbors:
         sim_neighbors.sort(key=lambda x: -x[1])
-        shown = sim_neighbors[:10]
+        shown = sim_neighbors[:PAGE_SIZE]
         print(f"\n--- SIMILAR NODES (top {len(shown)} of {len(sim_neighbors)}) ---\n")
         for sn, w in shown:
             sn_type = nodes[sn]["type"] if sn in nodes else "?"
             print(f"  {w:.3f}  [{sn_type:12s}] {sn}")
+        save_pagination_state(resolved, 1, len(sim_neighbors))
 
     print(f"\n--- NAVIGATION ---")
     if pred_groups:
         first_neighbor = list(pred_groups.values())[0][0][0]
         print(f"  Follow a connection?          → node {first_neighbor}")
+    if sim_neighbors and len(sim_neighbors) > PAGE_SIZE:
+        print(f"  More similar nodes?           → next")
+        print(f"  Jump to page?                 → similar {resolved} <page>")
     print(f"  What's nearby?                → subgraph {resolved} --hops 1")
     if cid is not None:
         print(f"  Others in this cluster?       → community {cid}")
     print(f"  Looking for something else?   → search <query>")
     print(f"  Back to home?                 → explore")
+
+
+def get_sim_neighbors(resolved, nodes, adj, edges, neighbor_index=None):
+    neighbor_edges = get_neighbors(resolved, adj, edges, neighbor_index=neighbor_index)
+    sim_neighbors = []
+    for neighbor, edge_list in neighbor_edges.items():
+        for pred, direction in edge_list:
+            if pred == "cosine_similarity":
+                w = None
+                for e in edges:
+                    if (e["source"] == resolved and e["target"] == neighbor) or \
+                       (e["target"] == resolved and e["source"] == neighbor):
+                        if e["predicate"] == "cosine_similarity":
+                            w = e["weight"]
+                            break
+                sim_neighbors.append((neighbor, w or 0))
+    sim_neighbors.sort(key=lambda x: -x[1])
+    return sim_neighbors
+
+
+def cmd_similar(name, nodes, adj, edges, page=1, node_community=None, neighbor_index=None):
+    resolved = resolve_node(name, nodes)
+    if not resolved:
+        print(f"Error: no node matching '{name}'")
+        print("  Try: search <keyword>")
+        return
+
+    sim_neighbors = get_sim_neighbors(resolved, nodes, adj, edges, neighbor_index=neighbor_index)
+
+    if not sim_neighbors:
+        print(f"No similar nodes found for '{resolved}'.")
+        print(f"\n--- NAVIGATION ---")
+        print(f"  Back to node detail?          → node {resolved}")
+        print(f"  Back to home?                 → explore")
+        return
+
+    total = len(sim_neighbors)
+    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+
+    start = (page - 1) * PAGE_SIZE
+    end = min(start + PAGE_SIZE, total)
+    shown = sim_neighbors[start:end]
+
+    save_pagination_state(resolved, page, total)
+
+    print("=" * 60)
+    print(f"SIMILAR NODES: {resolved}")
+    print(f"  page {page} of {total_pages} ({start + 1}-{end} of {total})")
+    print("=" * 60)
+
+    cid = node_community.get(resolved) if node_community else None
+
+    print()
+    for sn, w in shown:
+        sn_type = nodes[sn]["type"] if sn in nodes else "?"
+        sn_cid = node_community.get(sn) if node_community else None
+        community_tag = f"  C{sn_cid}" if sn_cid is not None else ""
+        print(f"  {w:.3f}  [{sn_type:12s}] {sn}{community_tag}")
+
+    print(f"\n--- NAVIGATION ---")
+    if page < total_pages:
+        print(f"  Next page?                    → next")
+    if page > 1:
+        print(f"  Previous page?                → similar {resolved} {page - 1}")
+    if page < total_pages:
+        print(f"  Jump to page?                 → similar {resolved} <page>")
+    print(f"  Inspect a node?               → node <name>")
+    print(f"  Back to node detail?          → node {resolved}")
+    print(f"  Back to home?                 → explore")
+
+
+def cmd_next(nodes, adj, edges, node_community=None, neighbor_index=None):
+    state = load_pagination_state()
+    if not state:
+        print("Nothing to page through. Use 'node <name>' first to view a node's similar nodes.")
+        return
+
+    node_name = state["node"]
+    current_page = state["page"]
+    total = state["total"]
+    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+    next_page = current_page + 1
+
+    if next_page > total_pages:
+        print(f"Already at last page ({current_page} of {total_pages}) for: {node_name}")
+        print(f"\n--- NAVIGATION ---")
+        print(f"  Back to page 1?               → similar {node_name} 1")
+        print(f"  Back to node detail?          → node {node_name}")
+        return
+
+    cmd_similar(node_name, nodes, adj, edges, page=next_page,
+                node_community=node_community, neighbor_index=neighbor_index)
 
 
 def cmd_subgraph(args, nodes, adj, edges):
@@ -681,7 +800,7 @@ def cmd_search(query, nodes, adj, edges, node_community=None, origin=None, node_
     print(f"  Back to home?                 → explore")
 
 
-def cmd_path(args, nodes, adj):
+def cmd_path(args, nodes, adj, node_community=None):
     if "--" in args:
         sep = args.index("--")
         from_name = " ".join(args[:sep])
@@ -761,6 +880,22 @@ def cmd_path(args, nodes, adj):
                 skeleton = skeleton[:57] + "..."
             print(f"  {prefix} [{n['type']:12s}] {nid}")
             print(f"               {skeleton}")
+
+    if found and num_paths > 1 and node_community:
+        all_paths = reconstruct(to_node)
+        community_paths = set()
+        for p in all_paths:
+            intermediates = p[1:-1]
+            if intermediates:
+                c_path = tuple(node_community.get(n, -1) for n in intermediates)
+            else:
+                c_path = ()
+            community_paths.add(c_path)
+        print(f"\n--- COMMUNITY-COLLAPSED PATHS ---")
+        print(f"  {num_paths} node-paths through {len(community_paths)} distinct community-path(s)")
+        if len(community_paths) <= 10:
+            for cp in sorted(community_paths):
+                print(f"    C{' → C'.join(str(c) for c in cp)}" if cp else "    (direct)")
 
     print(f"\n--- NAVIGATION ---")
     if found:
@@ -1056,7 +1191,7 @@ def main():
     origin, node_type, full, rest = parse_flags(rest)
 
     community_data = None
-    if cmd in ("explore", "community", "node", "search", "timeline"):
+    if cmd in ("explore", "community", "node", "similar", "next", "search", "timeline", "path"):
         community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
 
     if cmd == "explore":
@@ -1073,6 +1208,25 @@ def main():
         name = " ".join(rest)
         _, node_community = community_data
         cmd_node(name, nodes, adj, edges, node_community=node_community, neighbor_index=neighbor_index)
+    elif cmd == "similar":
+        if not rest:
+            print("Usage: similar <name> [page]")
+            return
+        page = 1
+        if rest[-1].isdigit():
+            page = int(rest[-1])
+            rest = rest[:-1]
+        if not rest:
+            print("Usage: similar <name> [page]")
+            return
+        name = " ".join(rest)
+        _, node_community = community_data
+        cmd_similar(name, nodes, adj, edges, page=page, node_community=node_community, neighbor_index=neighbor_index)
+    elif cmd == "next":
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        _, node_community = community_data
+        cmd_next(nodes, adj, edges, node_community=node_community, neighbor_index=neighbor_index)
     elif cmd == "subgraph":
         cmd_subgraph(sys.argv[2:], nodes, adj, edges)
     elif cmd == "search":
@@ -1083,7 +1237,8 @@ def main():
         _, node_community = community_data
         cmd_search(query, nodes, adj, edges, node_community=node_community, origin=origin, node_type=node_type)
     elif cmd == "path":
-        cmd_path(sys.argv[2:], nodes, adj)
+        _, node_community = community_data
+        cmd_path(sys.argv[2:], nodes, adj, node_community=node_community)
     elif cmd == "surprise":
         if not rest:
             print("Usage: surprise <name>")
@@ -1111,7 +1266,7 @@ def main():
         cmd_timeline(name, nodes, adj, edges, community_data=community_data, full=full)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: explore, community, node, subgraph, search, path, surprise, gaps, timeline")
+        print("Commands: explore, community, node, similar, next, subgraph, search, path, surprise, gaps, timeline")
         print("Run with --help for usage.")
 
 
