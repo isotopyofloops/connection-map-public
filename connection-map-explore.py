@@ -70,6 +70,7 @@ def compute_communities(nodes, adj, edges, precomputed=None):
         else:
             G.add_edge(e["source"], e["target"], weight=w)
 
+    # Fallback only — precomputed communities are canonical. This may differ across networkx versions even with fixed seed.
     partition = community_louvain.best_partition(G, resolution=1.0, random_state=42)
 
     communities = defaultdict(list)
@@ -174,7 +175,17 @@ def resolve_node(name, nodes):
     return None
 
 
-def get_neighbors(nid, adj, edges):
+def build_neighbor_index(edges):
+    index = defaultdict(lambda: defaultdict(list))
+    for e in edges:
+        index[e["source"]][e["target"]].append((e["predicate"], "→"))
+        index[e["target"]][e["source"]].append((e["predicate"], "←"))
+    return index
+
+
+def get_neighbors(nid, adj, edges, neighbor_index=None):
+    if neighbor_index:
+        return neighbor_index.get(nid, {})
     neighbor_edges = defaultdict(list)
     for e in edges:
         if e["source"] == nid:
@@ -411,7 +422,7 @@ def cmd_community(cid_str, nodes, adj, edges, community_data=None, origin=None, 
     print(f"  Back to home?                 → explore")
 
 
-def cmd_node(name, nodes, adj, edges, node_community=None):
+def cmd_node(name, nodes, adj, edges, node_community=None, neighbor_index=None):
     resolved = resolve_node(name, nodes)
     if not resolved:
         print(f"Error: no node matching '{name}'")
@@ -419,7 +430,7 @@ def cmd_node(name, nodes, adj, edges, node_community=None):
         return
 
     n = nodes[resolved]
-    neighbor_edges = get_neighbors(resolved, adj, edges)
+    neighbor_edges = get_neighbors(resolved, adj, edges, neighbor_index=neighbor_index)
     deg = len(adj.get(resolved, set()))
 
     cid = node_community.get(resolved) if node_community else None
@@ -436,6 +447,8 @@ def cmd_node(name, nodes, adj, edges, node_community=None):
     if n.get("url"):
         print(f"  url:     {n['url']}")
 
+    # Detail view: summary is canonical, skeleton shown only if it adds information.
+    # Other views use skeleton-as-preview; here both are available.
     print(f"\n--- SUMMARY ---\n  {n.get('summary', 'no summary')}")
 
     if n.get("skeleton") and n["skeleton"] != n.get("summary"):
@@ -690,19 +703,46 @@ def cmd_path(args, nodes, adj):
         print(f"Error: no node matching '{to_name}'")
         return
 
-    visited = {from_node}
-    queue = [(from_node, [from_node])]
-    found = None
+    dist = {from_node: 0}
+    parent = {from_node: []}
+    queue = [from_node]
+    found_dist = None
 
     while queue:
-        current, path = queue.pop(0)
-        if current == to_node:
-            found = path
+        current = queue.pop(0)
+        if found_dist is not None and dist[current] > found_dist:
             break
+        if current == to_node:
+            found_dist = dist[current]
+            continue
         for neighbor in adj.get(current, set()):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append((neighbor, path + [neighbor]))
+            nd = dist[current] + 1
+            if neighbor not in dist:
+                dist[neighbor] = nd
+                parent[neighbor] = [current]
+                queue.append(neighbor)
+            elif nd == dist[neighbor]:
+                parent[neighbor].append(current)
+
+    def count_paths(node):
+        if node == from_node:
+            return 1
+        return sum(count_paths(p) for p in parent.get(node, []))
+
+    def reconstruct(node):
+        if node == from_node:
+            return [[from_node]]
+        paths = []
+        for p in parent.get(node, []):
+            for prefix in reconstruct(p):
+                paths.append(prefix + [node])
+        return paths
+
+    found = None
+    num_paths = 0
+    if to_node in dist:
+        num_paths = count_paths(to_node)
+        found = reconstruct(to_node)[0]
 
     print("=" * 60)
     print(f"PATH: {from_node} → {to_node}")
@@ -711,7 +751,8 @@ def cmd_path(args, nodes, adj):
     if not found:
         print(f"\nNo path found between these nodes.")
     else:
-        print(f"\nLength: {len(found) - 1} hops\n")
+        path_note = f" (1 of {num_paths} shortest)" if num_paths > 1 else ""
+        print(f"\nLength: {len(found) - 1} hops{path_note}\n")
         for i, nid in enumerate(found):
             n = nodes[nid]
             prefix = "START" if i == 0 else "END  " if i == len(found) - 1 else f"  {i}  "
@@ -801,15 +842,7 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
         print(f"  (Similarity edges cover {len(sim_lookup)} pairs in the graph.)")
 
     if without_sim:
-        print(f"\n--- NO SIMILARITY SCORE ({len(without_sim)} curated neighbors) ---\n")
-        shown = without_sim[:5]
-        for nb, preds in shown:
-            nb_type = nodes[nb]["type"] if nb in nodes else "?"
-            print(f"  [{nb_type}] {nb}")
-            for p in preds[:2]:
-                print(f"         {p}")
-        if len(without_sim) > 5:
-            print(f"  ... and {len(without_sim) - 5} more")
+        print(f"\n  ({len(without_sim)} curated neighbor(s) have no similarity score — cannot rank by surprise)")
 
     if high_sim_no_edge:
         print(f"\n--- SIMILAR BUT UNCONNECTED (high similarity, no curated edge) ---\n")
@@ -1017,6 +1050,7 @@ def main():
         return
 
     nodes, adj, edges, precomputed = load_graph()
+    neighbor_index = build_neighbor_index(edges)
     cmd = sys.argv[1]
     rest = sys.argv[2:]
     origin, node_type, full, rest = parse_flags(rest)
@@ -1038,7 +1072,7 @@ def main():
             return
         name = " ".join(rest)
         _, node_community = community_data
-        cmd_node(name, nodes, adj, edges, node_community=node_community)
+        cmd_node(name, nodes, adj, edges, node_community=node_community, neighbor_index=neighbor_index)
     elif cmd == "subgraph":
         cmd_subgraph(sys.argv[2:], nodes, adj, edges)
     elif cmd == "search":
