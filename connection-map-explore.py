@@ -18,6 +18,7 @@ Usage:
     python3 connection-map-explore.py gaps <name or origin>
     python3 connection-map-explore.py timeline <origin>
     python3 connection-map-explore.py overlap <agent1> <agent2>
+    python3 connection-map-explore.py jaccard <name>
 """
 
 import json
@@ -1000,7 +1001,7 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
     print(f"  Back to home?                 → explore")
 
 
-def cmd_gaps(name, nodes, adj, edges, community_data=None):
+def cmd_gaps(name, nodes, adj, edges, community_data=None, node_type=None):
     communities, node_community = community_data or ({}, {})
 
     valid_origins = set()
@@ -1020,8 +1021,13 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
         connected |= adj.get(nid, set())
     connected |= origin_set
 
+    type_filter_str = ""
+    if node_type:
+        type_set = filter_by_type(nodes, node_type)
+        type_filter_str = f", type={node_type}"
+
     print("=" * 60)
-    print(f"GAPS: {name} ({len(origin_set)} nodes)")
+    print(f"GAPS: {name} ({len(origin_set)} nodes{type_filter_str})")
     print("=" * 60)
 
     biggest_gap_cid = None
@@ -1031,15 +1037,21 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
         print(f"\n--- COMMUNITY PRESENCE ---\n")
         for cid in sorted(communities.keys()):
             members = set(communities[cid])
+            if node_type:
+                members = members & type_set
             present = members & origin_set
             pct = len(present) / len(members) * 100 if members else 0
             bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
-            label_str = community_label(list(members), nodes)
+            label_str = community_label(list(communities[cid]), nodes)
             print(f"  C{cid} {bar} {len(present)}/{len(members)} nodes ({pct:.0f}%)  [{label_str}]")
 
         low_presence = []
         for cid in sorted(communities.keys()):
             members = set(communities[cid])
+            if node_type:
+                members = members & type_set
+            if not members:
+                continue
             present = list(members & origin_set)
             pct = len(present) / len(members) * 100 if members else 0
             if pct < biggest_gap_pct:
@@ -1069,23 +1081,51 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
                         print(f"      [{n['type']}] {nid} (deg={deg}, origin={origin_str(n)})")
                 print()
 
-    all_types = Counter(n["type"] for n in nodes.values())
-    origin_types = Counter(nodes[nid]["type"] for nid in origin_set)
-    zero_types = []
-    print(f"--- TYPE COVERAGE ---\n")
-    for t, total in all_types.most_common():
-        count = origin_types.get(t, 0)
-        pct = count / total * 100
-        print(f"  {t:15s}  {count:3d}/{total:3d}  ({pct:.0f}%)")
-        if count == 0 and total > 3:
-            zero_types.append((t, total))
+    if node_type:
+        all_nodes_for_type = {nid for nid, n in nodes.items() if n.get("type", "").lower() == node_type.lower()}
+        origin_in_type = origin_set & all_nodes_for_type
+        total_of_type = len(all_nodes_for_type)
+        mine_of_type = len(origin_in_type)
+        pct = mine_of_type / total_of_type * 100 if total_of_type else 0
+        print(f"--- TYPE FILTER: {node_type} ---\n")
+        print(f"  {name}'s {node_type} nodes: {mine_of_type}/{total_of_type} ({pct:.0f}%)")
+        not_mine = all_nodes_for_type - origin_set
+        if not_mine:
+            print(f"\n  {node_type} nodes NOT in {name}'s set ({len(not_mine)}):\n")
+            sorted_not_mine = sorted(not_mine, key=lambda n: -len(adj.get(n, set())))
+            for nid in sorted_not_mine[:20]:
+                n = nodes[nid]
+                deg = len(adj.get(nid, set()))
+                ncid = node_community.get(nid, "?")
+                origins = origin_str(n)
+                is_connected = nid in connected
+                conn_mark = "↔" if is_connected else " "
+                print(f"  {conn_mark} [{n['type']}] {nid}  (deg={deg}, C{ncid}, origin={origins})")
+            if len(not_mine) > 20:
+                print(f"  ... and {len(not_mine) - 20} more")
+            print(f"\n  ↔ = connected to one of {name}'s nodes")
+    else:
+        all_types = Counter(n["type"] for n in nodes.values())
+        origin_types = Counter(nodes[nid]["type"] for nid in origin_set)
+        zero_types = []
+        print(f"--- TYPE COVERAGE ---\n")
+        for t, total in all_types.most_common():
+            count = origin_types.get(t, 0)
+            pct = count / total * 100
+            print(f"  {t:15s}  {count:3d}/{total:3d}  ({pct:.0f}%)")
+            if count == 0 and total > 3:
+                zero_types.append((t, total))
 
     print(f"\n--- NAVIGATION ---")
     if biggest_gap_cid is not None:
         print(f"  Explore your biggest gap?     → community {biggest_gap_cid}")
-    if zero_types:
+    if not node_type and zero_types:
         t, total = zero_types[0]
         print(f"  See all {t} nodes?{' ' * max(1, 13 - len(t))} → explore --type {t}")
+        print(f"  Filter gaps by type?          → gaps {name} --type {t}")
+    elif not node_type:
+        print(f"  Filter gaps by type?          → gaps {name} --type <type>")
+    print(f"  Structural neighbors?         → jaccard <node>")
     print(f"  What surprises are there?     → surprise {name}")
     print(f"  Filter by this agent?         → explore --origin {name}")
     print(f"  Back to home?                 → explore")
@@ -1308,6 +1348,122 @@ def cmd_overlap(agent1, agent2, nodes, adj, edges, community_data=None):
     print(f"  Back to home?                 → explore")
 
 
+def cmd_jaccard(name, nodes, adj, edges, community_data=None):
+    communities, node_community = community_data or ({}, {})
+
+    resolved = resolve_node(name, nodes)
+    if not resolved:
+        print(f"Error: no node matching '{name}'")
+        print("  Try: search <keyword>")
+        return
+
+    my_neighbors = adj.get(resolved, set())
+    if not my_neighbors:
+        print(f"Error: '{resolved}' has no neighbors — cannot compute Jaccard.")
+        return
+
+    sim_lookup = get_similarity_lookup(edges)
+
+    curated_neighbors = set()
+    for e in edges:
+        if e["predicate"] == "cosine_similarity":
+            continue
+        if e["source"] == resolved:
+            curated_neighbors.add(e["target"])
+        elif e["target"] == resolved:
+            curated_neighbors.add(e["source"])
+
+    scores = []
+    for other_id in nodes:
+        if other_id == resolved:
+            continue
+        other_neighbors = adj.get(other_id, set())
+        if not other_neighbors:
+            continue
+        intersection = my_neighbors & other_neighbors
+        if not intersection:
+            continue
+        union = my_neighbors | other_neighbors
+        j = len(intersection) / len(union)
+        scores.append((other_id, j, len(intersection), len(union)))
+
+    scores.sort(key=lambda x: -x[1])
+
+    cid = node_community.get(resolved, "?")
+    print("=" * 60)
+    print(f"JACCARD: {resolved}")
+    print("=" * 60)
+    print(f"\n  node: {resolved} ({nodes[resolved].get('type','?')}, C{cid})")
+    print(f"  neighbors: {len(my_neighbors)}")
+    print(f"  curated edges: {len(curated_neighbors)}")
+    print(f"  nodes with shared neighbors: {len(scores)}")
+
+    if scores:
+        print(f"\n--- TOP STRUCTURAL NEIGHBORS (by neighbor-set Jaccard) ---\n")
+        for nid, j, inter, union in scores[:15]:
+            n = nodes[nid]
+            ncid = node_community.get(nid, "?")
+            cosine_key = tuple(sorted([resolved, nid]))
+            cosine = sim_lookup.get(cosine_key)
+            is_connected = nid in curated_neighbors
+            conn_mark = "●" if is_connected else "○"
+            cosine_str = f"cos={cosine:.3f}" if cosine is not None else "no-cos"
+            print(f"  {conn_mark} J={j:.3f}  [{n['type']}] {nid}  "
+                  f"C{ncid}  ({inter}/{union} shared)  {cosine_str}")
+        print(f"\n  ● = curated edge exists  ○ = no curated edge")
+
+    # Cross-domain parallels: high Jaccard but low/no cosine similarity
+    parallels = []
+    for nid, j, inter, union in scores:
+        if j < 0.05:
+            break
+        cosine_key = tuple(sorted([resolved, nid]))
+        cosine = sim_lookup.get(cosine_key)
+        is_connected = nid in curated_neighbors
+        if cosine is not None and cosine < 0.45:
+            parallels.append((nid, j, cosine, inter, "low_cosine"))
+        elif cosine is None and not is_connected:
+            parallels.append((nid, j, None, inter, "unscored_unconnected"))
+
+    if parallels:
+        parallels.sort(key=lambda x: -x[1])
+        print(f"\n--- CROSS-DOMAIN PARALLELS (high Jaccard, low/no cosine) ---\n")
+        print(f"  These nodes occupy similar graph positions but use different vocabulary.")
+        print(f"  They are structural isomorphs — same role, different domain.\n")
+        for nid, j, cosine, inter, reason in parallels[:10]:
+            n = nodes[nid]
+            ncid = node_community.get(nid, "?")
+            if cosine is not None:
+                print(f"  J={j:.3f} cos={cosine:.3f}  [{n['type']}] {nid}  C{ncid}  ({inter} shared neighbors)")
+            else:
+                print(f"  J={j:.3f} no-cos     [{n['type']}] {nid}  C{ncid}  ({inter} shared neighbors)")
+        if not any(x[4] == "low_cosine" for x in parallels):
+            print(f"\n  (All parallels are unscored — cosine data would strengthen this analysis)")
+
+    # Unconnected structural neighbors: high Jaccard, no curated edge
+    unconnected_high = [(nid, j, inter) for nid, j, inter, union in scores[:50]
+                        if nid not in curated_neighbors and j >= 0.05]
+    if unconnected_high:
+        print(f"\n--- SUGGESTED EDGES (high Jaccard, no curated connection) ---\n")
+        for nid, j, inter in unconnected_high[:8]:
+            n = nodes[nid]
+            ncid = node_community.get(nid, "?")
+            shared_names = sorted(my_neighbors & adj.get(nid, set()),
+                                  key=lambda x: -len(adj.get(x, set())))[:3]
+            via_str = ", ".join(shared_names[:3])
+            print(f"  J={j:.3f}  [{n['type']}] {nid}  C{ncid}")
+            print(f"          via: {via_str}")
+
+    print(f"\n--- NAVIGATION ---")
+    if scores:
+        print(f"  Inspect top match?            → node {scores[0][0]}")
+    if parallels:
+        print(f"  Inspect a parallel?           → node {parallels[0][0]}")
+    print(f"  Compare with another node?    → jaccard {scores[0][0] if scores else '<name>'}")
+    print(f"  See {resolved}'s surprise edges? → surprise {resolved}")
+    print(f"  Back to home?                 → explore")
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
@@ -1320,7 +1476,7 @@ def main():
     origin, node_type, full, rest = parse_flags(rest)
 
     community_data = None
-    if cmd in ("explore", "community", "node", "similar", "next", "search", "timeline", "path", "overlap"):
+    if cmd in ("explore", "community", "node", "similar", "next", "search", "timeline", "path", "overlap", "jaccard"):
         community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
 
     if cmd == "explore":
@@ -1379,12 +1535,12 @@ def main():
         cmd_surprise(name, nodes, adj, edges, node_community=node_community)
     elif cmd == "gaps":
         if not rest:
-            print("Usage: gaps <name or origin>")
+            print("Usage: gaps <name or origin> [--type <type>]")
             return
         if not community_data:
             community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
         name = " ".join(rest)
-        cmd_gaps(name, nodes, adj, edges, community_data=community_data)
+        cmd_gaps(name, nodes, adj, edges, community_data=community_data, node_type=node_type)
     elif cmd == "timeline":
         if not rest:
             print("Usage: timeline <origin>")
@@ -1400,9 +1556,19 @@ def main():
         if not community_data:
             community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
         cmd_overlap(rest[0], rest[1], nodes, adj, edges, community_data=community_data)
+    elif cmd == "jaccard":
+        if not rest:
+            print("Usage: jaccard <name>")
+            print("  Shows structural neighbors — nodes that share the same neighborhood")
+            print("  regardless of semantic similarity. Catches cross-domain parallels.")
+            return
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        name = " ".join(rest)
+        cmd_jaccard(name, nodes, adj, edges, community_data=community_data)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: explore, community, node, similar, next, subgraph, search, path, surprise, gaps, timeline, overlap")
+        print("Commands: explore, community, node, similar, next, subgraph, search, path, surprise, gaps, timeline, overlap, jaccard")
         print("Run with --help for usage.")
 
 
