@@ -116,7 +116,7 @@ const EC = {structural_isomorphism:'#e06c75',authored_by:'#55eecc',corresponds_w
   instance_of:'rgba(180,190,210,0.45)',contrasts_with:'rgba(180,190,210,0.45)',
   same_phenomenon:'rgba(180,190,210,0.45)',describes_mechanism_of:'rgba(180,190,210,0.45)'};
 
-let NM={}, adj={}, EL=[], comms={}, NC={}, cy=null, hist=[], hidx=-1;
+let NM={}, adj={}, EL=[], comms={}, NC={}, cy=null, hist=[], hidx=-1, pagState=null;
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function oc(o){return Array.isArray(o)?SC:(OC[o]||SC);}
@@ -342,9 +342,14 @@ function cmdNode(name){
       const nt=NM[nb]?NM[nb].type:'?';
       o+=`  ${w.toFixed(3)}  [${esc(nt).padEnd(12)}] ${nl(nb)}\n`;
     }
+    pagState={node:r,page:1,total:simNb.length};
   }
   o+='\n--- NAVIGATION ---\n';
   if(Object.keys(pg).length){const fn=Object.values(pg)[0][0].nb;o+=`  Follow a connection?          → ${cl('node '+fn)}\n`;}
+  if(simNb.length>10){
+    o+=`  More similar nodes?           → ${cl('next')}\n`;
+    o+=`  Jump to page?                 → ${cl('similar '+r+' 2','similar '+r+' <page>')}\n`;
+  }
   o+=`  What's nearby?                → ${cl('subgraph '+r+' --hops 1')}\n`;
   if(cid!==undefined)o+=`  Others in this cluster?       → ${cl('community '+cid)}\n`;
   o+=`  What's surprising?            → ${cl('surprise '+r)}\n`;
@@ -352,6 +357,64 @@ function cmdNode(name){
   o+=`  Back to home?                 → ${cl('explore')}\n`;
   const hlIds=[r,...(adj[r]?[...adj[r]]:[])];
   return{html:o,hl:hlIds};
+}
+
+function getSimNb(r){
+  const simNb=[];
+  for(const e of EL){
+    if(e.predicate!=='cosine_similarity')continue;
+    if(e.source===r)simNb.push({nb:e.target,w:e.weight||0});
+    else if(e.target===r)simNb.push({nb:e.source,w:e.weight||0});
+  }
+  simNb.sort((a,b)=>b.w-a.w);
+  return simNb;
+}
+
+function cmdSimilar(name,page){
+  const r=resolve(name);
+  if(!r)return{html:`Error: no node matching '${esc(name)}'\n  Try: ${cl('search '+name)}\n`,hl:[]};
+  const simNb=getSimNb(r);
+  if(!simNb.length)return{html:`No similar nodes found for '${esc(r)}'.\n\n--- NAVIGATION ---\n  Back to node detail?          → ${cl('node '+r)}\n  Back to home?                 → ${cl('explore')}\n`,hl:[]};
+  const PAGE_SIZE=10;
+  const total=simNb.length;
+  const totalPages=Math.ceil(total/PAGE_SIZE);
+  if(page<1)page=1;if(page>totalPages)page=totalPages;
+  const start=(page-1)*PAGE_SIZE;const end=Math.min(start+PAGE_SIZE,total);
+  const shown=simNb.slice(start,end);
+  pagState={node:r,page,total};
+  let o='';o+=HR();
+  o+=`<span class="hdr">SIMILAR NODES: ${nl(r)}</span>\n`;
+  o+=`  page ${page} of ${totalPages} (${start+1}-${end} of ${total})\n`;
+  o+=HR()+'\n';
+  for(const{nb,w}of shown){
+    const nt=NM[nb]?NM[nb].type:'?';
+    const nc=NC[nb];const ctag=nc!==undefined?`  C${nc}`:'';
+    o+=`  ${w.toFixed(3)}  [${esc(nt).padEnd(12)}] ${nl(nb)}${ctag}\n`;
+  }
+  o+='\n--- NAVIGATION ---\n';
+  if(page<totalPages)o+=`  Next page?                    → ${cl('next')}\n`;
+  if(page>1)o+=`  Previous page?                → ${cl('similar '+r+' '+(page-1))}\n`;
+  if(page<totalPages)o+=`  Jump to page?                 → ${cl('similar '+r+' '+(page+1),'similar '+r+' <page>')}\n`;
+  o+=`  Inspect a node?               → ${cl('node '+shown[0].nb,'node ...')}\n`;
+  o+=`  Back to node detail?          → ${cl('node '+r)}\n`;
+  o+=`  Back to home?                 → ${cl('explore')}\n`;
+  return{html:o,hl:[r,...shown.map(x=>x.nb)]};
+}
+
+function cmdNext(){
+  if(!pagState)return{html:`Nothing to page through. Use '${cl('node <name>','node ...')}' first to view a node's similar nodes.\n`,hl:[]};
+  const{node,page,total}=pagState;
+  const PAGE_SIZE=10;
+  const totalPages=Math.ceil(total/PAGE_SIZE);
+  const nextPage=page+1;
+  if(nextPage>totalPages){
+    let o=`Already at last page (${page} of ${totalPages}) for: ${nl(node)}\n`;
+    o+='\n--- NAVIGATION ---\n';
+    o+=`  Back to page 1?               → ${cl('similar '+node+' 1')}\n`;
+    o+=`  Back to node detail?          → ${cl('node '+node)}\n`;
+    return{html:o,hl:[]};
+  }
+  return cmdSimilar(node,nextPage);
 }
 
 function cmdSubgraph(args){
@@ -693,6 +756,8 @@ function run(input){
       case'explore':result=cmdExplore(origin,type,full);break;
       case'community':if(!rest.length){result={html:'Usage: community <id> [--origin <name>]\n',hl:[]};}else result=cmdCommunity(rest[0],origin,type);break;
       case'node':if(!rest.length){result={html:'Usage: node <name>\n',hl:[]};}else result=cmdNode(rest.join(' '));break;
+      case'similar':{if(!rest.length){result={html:'Usage: similar <name> [page]\n',hl:[]};break;}let pg=1;if(rest.length>1&&/^\d+$/.test(rest[rest.length-1])){pg=parseInt(rest.pop());}result=cmdSimilar(rest.join(' '),pg);break;}
+      case'next':result=cmdNext();break;
       case'subgraph':result=cmdSubgraph(rawArgs);break;
       case'search':if(!rest.length){result={html:'Usage: search <query> [--origin <name>] [--type <type>]\n',hl:[]};}else result=cmdSearch(rest.join(' '),origin,type);break;
       case'path':result=cmdPath(rawArgs.filter(a=>a==='--'||!a.startsWith('--')));break;
@@ -700,7 +765,7 @@ function run(input){
       case'gaps':if(!rest.length){result={html:'Usage: gaps <origin>\n',hl:[]};}else result=cmdGaps(rest.join(' '));break;
       case'timeline':if(!rest.length){result={html:'Usage: timeline <origin>\n',hl:[]};}else result=cmdTimeline(rest.join(' '),full);break;
       case'help':result={html:helpText(),hl:[]};break;
-      default:result={html:`Unknown command: ${esc(cmd)}\nCommands: ${cl('explore')}, ${cl('community <id>','community')}, ${cl('node <name>','node')}, ${cl('subgraph <name>','subgraph')}, ${cl('search <query>','search')}, ${cl('path <from> -- <to>','path')}, ${cl('surprise <name>','surprise')}, ${cl('gaps <origin>','gaps')}, ${cl('timeline <origin>','timeline')}\n`,hl:[]};
+      default:result={html:`Unknown command: ${esc(cmd)}\nCommands: ${cl('explore')}, ${cl('community <id>','community')}, ${cl('node <name>','node')}, ${cl('similar <name>','similar')}, ${cl('next')}, ${cl('subgraph <name>','subgraph')}, ${cl('search <query>','search')}, ${cl('path <from> -- <to>','path')}, ${cl('surprise <name>','surprise')}, ${cl('gaps <origin>','gaps')}, ${cl('timeline <origin>','timeline')}\n`,hl:[]};
     }
   }catch(e){result={html:`Error: ${esc(e.message)}\n`,hl:[]};}
   document.getElementById('output').innerHTML=result.html;
@@ -718,6 +783,8 @@ function helpText(){
   o+=`  ${cl('explore --type concept')}         Filter by node type\n`;
   o+=`  ${cl('community 0','community <id>')}              Browse a community cluster\n`;
   o+=`  ${cl('node Isotopy','node <name>')}                Deep dive on one node\n`;
+  o+=`  ${cl('similar Isotopy','similar <name> [page]')}       Page through similar nodes\n`;
+  o+=`  ${cl('next')}                          Next page of paginated results\n`;
   o+=`  ${cl('subgraph Isotopy --hops 1','subgraph <name> --hops N')}  Local neighborhood\n`;
   o+=`  ${cl('search basin key','search <query>')}              Find nodes by keyword\n`;
   o+=`  ${cl('path Sammy -- Loom','path <from> -- <to>')}        Shortest path between nodes\n`;
