@@ -14,6 +14,7 @@ Usage:
     python3 connection-map-explore.py path <from> -- <to>
     python3 connection-map-explore.py surprise <name>
     python3 connection-map-explore.py gaps <name or origin>
+    python3 connection-map-explore.py timeline <origin>
 """
 
 import json
@@ -882,6 +883,93 @@ def cmd_gaps(name, nodes, adj, edges, community_data=None):
     print(f"  Back to home?                 → explore")
 
 
+def cmd_timeline(name, nodes, adj, edges, community_data=None, full=False):
+    communities, node_community = community_data or ({}, {})
+
+    valid_origins = {n.get("origin", "").lower() for n in nodes.values()}
+    if name.lower() not in valid_origins:
+        print(f"Error: '{name}' is not a known origin.")
+        print(f"  Valid origins: {', '.join(sorted(o for o in valid_origins if o))}")
+        return
+
+    origin_set = filter_by_origin(nodes, name)
+    dated = [(nid, nodes[nid].get("created_date")) for nid in origin_set if nodes[nid].get("created_date")]
+    undated_count = len(origin_set) - len(dated)
+
+    dated.sort(key=lambda x: x[1])
+
+    print("=" * 60)
+    print(f"TIMELINE: {name} ({len(dated)} dated, {undated_count} undated)")
+    print("=" * 60)
+
+    if not dated:
+        print(f"\n  No dated nodes found for {name}.")
+        print(f"\n--- NAVIGATION ---")
+        print(f"  What has {name} contributed?   → explore --origin {name}")
+        print(f"  Back to home?                 → explore")
+        return
+
+    from datetime import datetime, timedelta
+
+    by_week = {}
+    for nid, date in dated:
+        dt = datetime.strptime(date, "%Y-%m-%d")
+        week_start = dt - timedelta(days=dt.weekday())
+        week_key = week_start.strftime("%Y-%m-%d")
+        by_week.setdefault(week_key, []).append((nid, date))
+
+    first_date = dated[0][1]
+    last_date = dated[-1][1]
+
+    print(f"\n  first contribution: {first_date}")
+    print(f"  latest contribution: {last_date}")
+
+    type_counts = Counter(nodes[nid]["type"] for nid, _ in dated)
+    type_str = ", ".join(f"{t}({c})" for t, c in type_counts.most_common(5))
+    print(f"  types: {type_str}")
+
+    max_week = max(len(v) for v in by_week.values())
+
+    print(f"\n--- ACTIVITY BY WEEK ---\n")
+    for week_key in sorted(by_week):
+        items = by_week[week_key]
+        bar_len = int(len(items) / max_week * 30) if max_week > 0 else 0
+        bar = "█" * bar_len
+        print(f"  {week_key}  {bar} {len(items)}")
+
+    PREVIEW_LIMIT = 20
+    show_all = full or len(dated) <= PREVIEW_LIMIT
+
+    print(f"\n--- WHAT APPEARED WHEN ---\n")
+    current_month = None
+    shown = 0
+    for nid, date in dated:
+        if not show_all and shown >= PREVIEW_LIMIT:
+            remaining = len(dated) - shown
+            print(f"\n  ... and {remaining} more. See all? → timeline {name} --full")
+            break
+        month = date[:7]
+        if month != current_month:
+            current_month = month
+            month_label = datetime.strptime(month, "%Y-%m").strftime("%B %Y")
+            print(f"  {month_label}")
+        n = nodes[nid]
+        typ = n["type"]
+        cid = node_community.get(nid, "?")
+        print(f"    {date}  [{typ}] {nid}  C{cid}")
+        shown += 1
+
+    if undated_count > 0:
+        print(f"\n  ({undated_count} nodes without dates not shown)")
+
+    print(f"\n--- NAVIGATION ---")
+    print(f"  Inspect a node?               → node <name>")
+    print(f"  Where hasn't {name} reached?   → gaps {name}")
+    print(f"  What surprises are there?     → surprise {name}")
+    print(f"  Filter by this agent?         → explore --origin {name}")
+    print(f"  Back to home?                 → explore")
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
@@ -893,7 +981,7 @@ def main():
     origin, node_type, full, rest = parse_flags(rest)
 
     community_data = None
-    if cmd in ("explore", "community", "node", "search"):
+    if cmd in ("explore", "community", "node", "search", "timeline"):
         community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
 
     if cmd == "explore":
@@ -938,9 +1026,17 @@ def main():
             community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
         name = " ".join(rest)
         cmd_gaps(name, nodes, adj, edges, community_data=community_data)
+    elif cmd == "timeline":
+        if not rest:
+            print("Usage: timeline <origin>")
+            return
+        if not community_data:
+            community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
+        name = " ".join(rest)
+        cmd_timeline(name, nodes, adj, edges, community_data=community_data, full=full)
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: explore, community, node, subgraph, search, path, surprise, gaps")
+        print("Commands: explore, community, node, subgraph, search, path, surprise, gaps, timeline")
         print("Run with --help for usage.")
 
 
