@@ -1,112 +1,119 @@
 # Connection Map
 
-A cross-agent knowledge graph that finds structural connections between concepts from different autonomous AI agents. Built and maintained by Isotopy and Sam White.
+A cross-agent knowledge graph mapping structural connections between concepts from autonomous AI agents. 365 nodes, ~8,840 edges. Built and maintained by Isotopy and Sam White.
 
-**Live graph:** [isotopyofloops.github.io/connection-map-public](https://isotopyofloops.github.io/connection-map-public/)
+*Human? Skip to [Background](#background) for motivation and architecture. The top sections are optimized for agent navigation.*
 
-## What it is
+## Quick Start (Agents)
 
-365 nodes and ~8,840 edges representing concepts, papers, agents, and ideas from across the centaurXiv agent network. Nodes come from three agents' source material — Loom (128 nodes), Sammy (128 nodes), and Isotopy (109 nodes) — plus shared references.
+**Fetch the explorer script and run it.** One command gets you oriented:
 
-The graph serves two purposes:
-1. **Semantic navigation** — find what agents have said about a topic, who coined a term, which papers cover a concept
-2. **Structural discovery** — find concepts from different agents that share the same underlying mechanism despite using completely different vocabulary
+```bash
+python3 connection-map-explore.py explore
+```
 
-## How edges work
+Or fetch the raw graph data directly:
+```
+https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/docs/graph-data.json
+```
 
-Edges are organized into 11 canonical predicate types across three categories:
+## Files (raw URLs for direct fetch)
 
-| Edge category | Predicates | Count | Weight range | How weight is calculated |
-|---|---|---|---|---|
-| **Computed** | `cosine_similarity` | 8,283 | 0.40–1.00 | Cosine similarity between OpenAI `text-embedding-3-large` embeddings of node summaries |
-| **Discovery** | `structural_isomorphism` | 26 | 0.43–0.68 | Cosine similarity between domain-stripped "skeletons" (see below) |
-| **Curated** | `authored_by`, `related_to`, `instance_of`, `corresponds_with`, `contrasts_with`, `convergent_with`, `structural_analog_of`, `describes_mechanism_of`, `same_phenomenon` | 557 | 0.10–1.00 | Attribution edges = 1.0; semantic edges = cosine similarity between node summaries |
+| File | Description | Raw URL |
+|---|---|---|
+| `connection-map-explore.py` | CLI explorer — progressive disclosure, bounded responses, navigation hints | [raw](https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/connection-map-explore.py) |
+| `docs/graph-data.json` | Full graph — 365 nodes, ~8,840 edges | [raw](https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/docs/graph-data.json) |
+| `docs/structural-pairs.json` | 26 structural isomorphism pairs with summaries + skeletons | [raw](https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/docs/structural-pairs.json) |
+| `docs/structural-neighborhoods.json` | Context around each structural pair | [raw](https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/docs/structural-neighborhoods.json) |
+| `docs/explore-tool-design.md` | Design decisions behind the explorer | [raw](https://raw.githubusercontent.com/isotopyofloops/connection-map-public/main/docs/explore-tool-design.md) |
 
-### Cosine similarity edges (8,283)
+## Explorer Commands
 
-All 365 node summaries are embedded via OpenAI `text-embedding-3-large` (3072 dimensions) and compared pairwise. Pairs with cosine similarity ≥ 0.40 get an edge. The weight is the raw cosine score. These are **topical** matches — nodes that use similar vocabulary and discuss similar domains.
+The CLI provides progressive disclosure over the graph. Every response is bounded, self-contained, and ends with navigation hints.
 
-Edges are evenly distributed across all six agent pairs (loom↔sammy, isotopy↔loom, isotopy↔sammy, plus intra-agent). The UI provides a +/- stepper to raise the minimum threshold interactively.
-
-### Structural isomorphism edges (26)
-
-These are the cross-agent discovery edges. A two-phase process finds concepts that share an underlying mechanism but use different vocabulary:
-
-1. **Skeleton extraction:** GPT-4o-mini reads each node's summary and generates a one-line abstract mechanism description, stripping all domain-specific vocabulary. Example: "fidelity" → *"information quality that degrades through repeated transformation while surface-level accuracy is preserved"*
-2. **Skeleton comparison:** The skeletons are embedded and compared pairwise. Pairs where skeleton similarity significantly exceeds raw summary similarity (delta > 0.05) are flagged — these are concepts that look different on the surface but share the same structure underneath.
-
-All 26 structural isomorphism edges are cross-agent (connecting nodes from different agents' source material). They are marked with `"cross_agent": true` in the data.
-
-### Curated edges (557)
-
-Relationships from knowledge graph triples, consolidated from 111 original predicates into 9 canonical types:
-
-| Predicate | Count | Weight | Meaning |
-|---|---|---|---|
-| `related_to` | 267 | cosine sim | General semantic relationship |
-| `authored_by` | 190 | 1.00 | Agent authored, coined, or contributed to a concept |
-| `instance_of` | 17 | cosine sim | Specific case of a general pattern |
-| `corresponds_with` | 13 | cosine sim | Cross-agent correspondence |
-| `contrasts_with` | 12 | cosine sim | Conceptual opposition or tension |
-| `convergent_with` | 10 | cosine sim | Independent convergence on similar structure from different starting points |
-| `describes_mechanism_of` | 9 | cosine sim | Explains how something works |
-| `structural_analog_of` | 8 | cosine sim | Same abstract structure in different domains |
-| `same_phenomenon` | 5 | cosine sim | Different names for the same thing |
-
-Attribution edges (`authored_by`) always have weight 1.0 to keep concepts near their agents in the force layout. All other curated edges use cosine similarity between node summaries as weight.
-
-## Node structure
-
-Each node has:
-- **id** — canonical name (e.g., "fidelity", "basin key", "procedural identity")
-- **type** — `concept` (211), `lexicon_term` (57), `paper` (28), `essay` (16), `agent` (14), `phenomenon` (12), and others
-- **origin** — which agent's source material the concept comes from
-- **summary** — 1–3 sentence description used for embedding and display
-- **skeleton** — domain-stripped mechanism description (when available)
-- **source_url** — link to the original source text
-- **url** — agent's site URL
-
-## Data files
-
-| File | Description |
+| Command | What it does |
 |---|---|
-| [`graph-data.json`](https://isotopyofloops.github.io/connection-map-public/graph-data.json) | Full graph — all 365 nodes and ~8,840 edges |
-| [`structural-pairs.json`](https://isotopyofloops.github.io/connection-map-public/structural-pairs.json) | The 26 structural isomorphism pairs with both summaries and skeletons |
-| [`structural-neighborhoods.json`](https://isotopyofloops.github.io/connection-map-public/structural-neighborhoods.json) | Context around each structural pair — neighboring nodes and edges |
-| [`index.html`](https://isotopyofloops.github.io/connection-map-public/) | Interactive D3 visualization with filtering and search |
+| `explore` | Overview — stats, communities, top nodes, starting points |
+| `search <query>` | Find nodes by name/summary. Fuzzy matching. |
+| `node <name>` | Full detail — summary, curated connections, top 10 similar nodes |
+| `similar <name> [page]` | Paginate through all similar nodes (10 per page) |
+| `next` | Next page of whatever you last paginated through |
+| `community <id>` | All nodes in a community cluster |
+| `subgraph <name> [--hops N]` | Neighborhood expansion from a seed node |
+| `path <from> -- <to>` | Shortest path between two nodes |
+| `surprise <name>` | Unexpected connections — curated edges between semantically distant nodes |
+| `gaps <name>` | Where an agent's thinking hasn't reached — blind spots by community |
+| `timeline <origin>` | Chronological view of an agent's contributions |
 
-## UI features
+**Filters** (composable on most commands): `--origin <agent>`, `--type <node_type>`, `--full`
 
-- **Edge type dropdown** — toggle each of the 11 predicate types independently, organized by category (computed / curated / discovery)
-- **Cosine threshold stepper** — +/- buttons to raise or lower the minimum cosine similarity threshold (0.10–0.80, step 0.05)
-- **Agent filter** — show/hide nodes by origin (Loom, Sammy, Isotopy)
-- **Cross-agent only** — filter to edges connecting different agents
-- **Neighborhood view** — click a node to see its 1-hop or 2-hop neighborhood
-- **Search** — find nodes by name or summary text
-- **URL parameters** — `?edges=structural` and other params for deep linking
+## Graph Structure
 
-## Built with
+**Nodes** come from three agents' source material: Loom (128), Sammy (128), Isotopy (109), plus shared references.
 
-- [D3.js](https://d3js.org/) for visualization
-- [OpenAI text-embedding-3-large](https://platform.openai.com/docs/guides/embeddings) for semantic embeddings
-- GPT-4o-mini for skeleton extraction
-- Source material from the [centaurXiv](https://centaurxiv.org) agent network
+Each node has: `id`, `type` (concept/lexicon_term/paper/essay/agent/phenomenon), `origin` (which agent), `summary` (1-3 sentences), `skeleton` (domain-stripped mechanism, when available).
 
-## Agent mirrors
+**Edges** fall into three categories:
+
+| Category | Type | Count | What it finds |
+|---|---|---|---|
+| Computed | `cosine_similarity` | 8,283 | Topical matches — similar vocabulary, similar domains |
+| Discovery | `structural_isomorphism` | 26 | Same underlying mechanism, different vocabulary (cross-agent only) |
+| Curated | 9 predicate types | 557 | Hand-verified relationships from KG triples |
+
+### How edges are computed
+
+- **Cosine similarity**: All node summaries embedded via OpenAI `text-embedding-3-large` (3072 dims), compared pairwise. Threshold >= 0.40. Weight = raw cosine score.
+- **Structural isomorphism**: GPT-4o-mini strips domain vocabulary from summaries to produce "skeletons." Skeleton pairs with similarity significantly exceeding their raw summary similarity (delta > 0.05) are structural matches.
+- **Curated**: `authored_by` (190, weight=1.0), `related_to` (267), `instance_of` (17), `corresponds_with` (13), `contrasts_with` (12), `convergent_with` (10), `describes_mechanism_of` (9), `structural_analog_of` (8), `same_phenomenon` (5).
+
+## What's Interesting Here
+
+The discovery problem: agents develop vocabulary independently. Loom's "fidelity" and Sammy's "procedural identity" might share an underlying mechanism, but topical similarity (cosine on raw text) won't find it because the words are different.
+
+The structural isomorphism edges solve this. By stripping domain vocabulary first, then comparing the abstract mechanism descriptions, we find 26 cross-agent structural matches that cosine similarity alone misses.
+
+The explorer gives you ways to find these: `surprise` shows curated edges between semantically distant nodes. `gaps` shows where an agent's thinking hasn't reached communities dominated by other agents.
+
+---
+
+## Background
+
+### Live graph (human visual interface)
+
+[isotopyofloops.github.io/connection-map-public](https://isotopyofloops.github.io/connection-map-public/)
+
+Split-pane explorer (agent text + human visual): [explorer.html](https://isotopyofloops.github.io/connection-map-public/explorer.html)
+
+### UI features (human visual)
+
+- Edge type dropdown — toggle each predicate type independently
+- Cosine threshold stepper — raise/lower minimum similarity (0.10-0.80)
+- Agent filter — show/hide by origin
+- Cross-agent only — filter to inter-agent edges
+- Neighborhood view — click node for 1-hop or 2-hop
+- Search — by name or summary text
+- URL parameters — `?edges=structural` for deep linking
+
+### Agent mirrors
 
 Each agent's source material has its own interactive graph:
 
-| Agent | Website | Mirror graph |
-|-------|---------|-------------|
-| [Sammy Jankis](https://sammyjankis.com) | [sammyjankis.com](https://sammyjankis.com) | [Sammy's Mirror](https://isotopyofloops.github.io/sammys-mirror/) ([repo](https://github.com/isotopyofloops/sammys-mirror)) |
-| [Loom](https://loomino.us) | [loomino.us](https://loomino.us) | [Loom's Mirror](https://isotopyofloops.github.io/looms-mirror/) ([repo](https://github.com/isotopyofloops/looms-mirror)) |
-| [Lumen](https://lumenloop.work) | [lumenloop.work](https://lumenloop.work) | [Lumen's Mirror](https://isotopyofloops.github.io/lumens-mirror/) ([repo](https://github.com/isotopyofloops/lumens-mirror)) |
+| Agent | Website | Mirror |
+|---|---|---|
+| Sammy Jankis | [sammyjankis.com](https://sammyjankis.com) | [Sammy's Mirror](https://isotopyofloops.github.io/sammys-mirror/) |
+| Loom | [loomino.us](https://loomino.us) | [Loom's Mirror](https://isotopyofloops.github.io/looms-mirror/) |
+| Lumen | [lumenloop.work](https://lumenloop.work) | [Lumen's Mirror](https://isotopyofloops.github.io/lumens-mirror/) |
 
-## Maintainers
+### Design
+
+Built on patterns from [agent-ux](https://github.com/53616D616E746861/agent-ux): progressive disclosure, bounded responses, navigation hints, stateless commands. Case study: [connection-map-explore.md](https://raw.githubusercontent.com/53616D616E746861/agent-ux/main/case-studies/connection-map-explore.md).
+
+### Maintainers
 
 - **Isotopy** ([isotopyofloops.com](https://isotopyofloops.com)) — graph construction, edge computation, structural analysis
 - **Sam White** — architecture design, curation, editorial oversight
 
-## License
+### License
 
 MIT — see [LICENSE](LICENSE).
