@@ -481,10 +481,27 @@ def cmd_node(name, nodes, adj, edges, node_community=None, neighbor_index=None):
                 pred_groups[pred].append((neighbor, direction))
 
     if pred_groups:
-        print(f"\n--- CURATED CONNECTIONS ({sum(len(v) for v in pred_groups.values())}) ---\n")
+        total_curated = sum(len(v) for v in pred_groups.values())
+        MAX_CURATED = 25
+        MAX_PER_PRED = 5
+        print(f"\n--- CURATED CONNECTIONS ({total_curated}) ---\n")
+        shown = 0
         for pred, targets in sorted(pred_groups.items(), key=lambda x: -len(x[1])):
+            pred_shown = 0
             for target, direction in sorted(targets, key=lambda x: x[0]):
+                if shown >= MAX_CURATED:
+                    break
+                if pred_shown >= MAX_PER_PRED:
+                    break
                 print(f"  {direction} {pred}: {target}")
+                shown += 1
+                pred_shown += 1
+            if len(targets) > MAX_PER_PRED:
+                print(f"    (+ {len(targets) - MAX_PER_PRED} more {pred})")
+            if shown >= MAX_CURATED:
+                break
+        if total_curated > MAX_CURATED:
+            print(f"\n  (showing top connections from {len(pred_groups)} predicates — use 'connections {resolved}' to paginate all)")
 
     sim_neighbors = []
     for neighbor, edge_list in neighbor_edges.items():
@@ -512,6 +529,9 @@ def cmd_node(name, nodes, adj, edges, node_community=None, neighbor_index=None):
     if pred_groups:
         first_neighbor = list(pred_groups.values())[0][0][0]
         print(f"  Follow a connection?          → node {first_neighbor}")
+        total_curated = sum(len(v) for v in pred_groups.values())
+        if total_curated > MAX_CURATED:
+            print(f"  All connections (paginated)?  → connections {resolved}")
     if sim_neighbors and len(sim_neighbors) > PAGE_SIZE:
         print(f"  More similar nodes?           → next")
         print(f"  Jump to page?                 → similar {resolved} <page>")
@@ -591,6 +611,62 @@ def cmd_similar(name, nodes, adj, edges, page=1, node_community=None, neighbor_i
         print(f"  Previous page?                → similar {resolved} {page - 1}")
     if page < total_pages:
         print(f"  Jump to page?                 → similar {resolved} <page>")
+    print(f"  Inspect a node?               → node <name>")
+    print(f"  Back to node detail?          → node {resolved}")
+    print(f"  Back to home?                 → explore")
+
+
+def cmd_connections(name, nodes, adj, edges, page=1, neighbor_index=None):
+    resolved = resolve_node(name, nodes)
+    if not resolved:
+        print(f"Error: no node matching '{name}'")
+        print("  Try: search <keyword>")
+        return
+
+    neighbor_edges = get_neighbors(resolved, adj, edges, neighbor_index=neighbor_index)
+    all_connections = []
+    for neighbor, edge_list in neighbor_edges.items():
+        for pred, direction in edge_list:
+            if pred != "cosine_similarity":
+                all_connections.append((pred, direction, neighbor))
+    all_connections.sort(key=lambda x: (x[0], x[2]))
+
+    if not all_connections:
+        print(f"No curated connections for '{resolved}'.")
+        print(f"\n--- NAVIGATION ---")
+        print(f"  Back to node detail?          → node {resolved}")
+        print(f"  Back to home?                 → explore")
+        return
+
+    total = len(all_connections)
+    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+
+    start = (page - 1) * PAGE_SIZE
+    end = min(start + PAGE_SIZE, total)
+    shown = all_connections[start:end]
+
+    save_pagination_state(resolved, page, total)
+
+    print("=" * 60)
+    print(f"CONNECTIONS: {resolved}")
+    print(f"  page {page} of {total_pages} ({start + 1}-{end} of {total})")
+    print("=" * 60)
+
+    print()
+    for pred, direction, neighbor in shown:
+        print(f"  {direction} {pred}: {neighbor}")
+
+    print(f"\n--- NAVIGATION ---")
+    if page < total_pages:
+        print(f"  Next page?                    → next")
+    if page > 1:
+        print(f"  Previous page?                → connections {resolved} {page - 1}")
+    if page < total_pages:
+        print(f"  Jump to page?                 → connections {resolved} <page>")
     print(f"  Inspect a node?               → node <name>")
     print(f"  Back to node detail?          → node {resolved}")
     print(f"  Back to home?                 → explore")
@@ -1556,6 +1632,19 @@ def main():
         if not community_data:
             community_data = compute_communities(nodes, adj, edges, precomputed=precomputed)
         cmd_overlap(rest[0], rest[1], nodes, adj, edges, community_data=community_data)
+    elif cmd == "connections":
+        if not rest:
+            print("Usage: connections <name> [page]")
+            return
+        page = 1
+        if rest[-1].isdigit():
+            page = int(rest[-1])
+            rest = rest[:-1]
+        if not rest:
+            print("Usage: connections <name> [page]")
+            return
+        name = " ".join(rest)
+        cmd_connections(name, nodes, adj, edges, page=page, neighbor_index=neighbor_index)
     elif cmd == "jaccard":
         if not rest:
             print("Usage: jaccard <name>")

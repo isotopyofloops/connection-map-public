@@ -322,11 +322,19 @@ function cmdNode(name){
   }
   if(Object.keys(pg).length){
     const total=Object.values(pg).reduce((s,v)=>s+v.length,0);
+    const MAX_CURATED=25,MAX_PER_PRED=5;
     o+=`\n--- CURATED CONNECTIONS (${total}) ---\n\n`;
+    let shown=0;
     for(const[pred,targets]of Object.entries(pg).sort((a,b)=>b[1].length-a[1].length)){
-      for(const{nb,dir}of targets.sort((a,b)=>a.nb.localeCompare(b.nb)))
-        o+=`  ${dir} ${esc(pred)}: ${nl(nb)}\n`;
+      let predShown=0;
+      for(const{nb,dir}of targets.sort((a,b)=>a.nb.localeCompare(b.nb))){
+        if(shown>=MAX_CURATED||predShown>=MAX_PER_PRED)break;
+        o+=`  ${dir} ${esc(pred)}: ${nl(nb)}\n`;shown++;predShown++;
+      }
+      if(targets.length>MAX_PER_PRED)o+=`<span class="dim">    (+ ${targets.length-MAX_PER_PRED} more ${esc(pred)})</span>\n`;
+      if(shown>=MAX_CURATED)break;
     }
+    if(total>MAX_CURATED)o+=`\n  <span class="dim">(showing top connections from ${Object.keys(pg).length} predicates — use ${cl('subgraph '+r+' --hops 1 --verbose')} for full list)</span>\n`;
   }
   const simNb=[];
   for(const e of EL){
