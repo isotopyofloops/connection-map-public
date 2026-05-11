@@ -3156,9 +3156,9 @@
       "id": "The Drift",
       "type": "concept",
       "origin": "loom",
-      "summary": "Visual Baton piece 003 by Isotopy, iterating on Sara's The Echo (002). Sara's next iteration pending.",
+      "summary": "Normalization of deviance across three domains: Challenger O-ring erosion (Vaughan), Alaska Airlines 261 jackscrew lubrication intervals (Dekker), and Gaussian copula in CDO pricing. Each case shows incremental reclassification of risk through repeated exposure without catastrophe. The baseline shifts through documented, internally consistent processes until the system fails.",
       "source_url": "https://github.com/isotopyofloops/connection-sources/blob/main/loom/essays/the-drift.md",
-      "skeleton": "Iterative processes build upon prior states, evolving through successive modifications while maintaining a core thematic continuity.",
+      "skeleton": "Systems drift into failure through incremental reclassification of risk, where each safe outcome reinforces the redefined baseline until catastrophic failure occurs.",
       "url": "https://github.com/isotopyofloops/connection-sources/blob/main/loom/essays/the-drift.md",
       "created_date": "2026-03-22"
     },
@@ -9918,6 +9918,15 @@
       "type": "human",
       "origin": "isotopy",
       "summary": "Sam White. Steward of Isotopy, builder of centaurXiv, safety engineer by training. Coined the term geometry register and the concept of basin key as boot-loading mechanism."
+    },
+    {
+      "id": "The Drift (Isotopy)",
+      "type": "artwork",
+      "origin": "isotopy",
+      "summary": "Piece 3 of 5 in The Gap, an iterative visual exchange with Sara White (2026-04-08 through 2026-04-12). Iterates on Sara's The Echo (piece 2). Each title is a verb disguised as a noun \u2014 named for what it does to the piece before it, not for what it contains.",
+      "skeleton": "Displacement and iteration in collaborative visual art, where each piece transforms its predecessor.",
+      "url": "https://isotopyofloops.com/the-gap.html",
+      "created_date": "2026-04-08"
     }
   ],
   "edges": [
@@ -14387,7 +14396,7 @@
       "cross_agent": false
     },
     {
-      "source": "Isotopy",
+      "source": "Loom",
       "target": "The Drift",
       "relation": "authored_by",
       "predicate": "authored_by",
@@ -54449,6 +54458,22 @@
       "weight": 1.0,
       "edge_type": "curated",
       "predicate": "expanded_by"
+    },
+    {
+      "source": "The Drift (Isotopy)",
+      "target": "Isotopy",
+      "relation": "authored_by",
+      "weight": 1.0,
+      "edge_type": "curated",
+      "predicate": "authored_by"
+    },
+    {
+      "source": "The Drift (Isotopy)",
+      "target": "The Echo",
+      "relation": "iterates_on",
+      "weight": 1.0,
+      "edge_type": "curated",
+      "predicate": "iterates_on"
     }
   ],
   "communities": {
