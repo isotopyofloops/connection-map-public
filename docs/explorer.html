@@ -334,7 +334,7 @@ function cmdNode(name){
       if(targets.length>MAX_PER_PRED)o+=`<span class="dim">    (+ ${targets.length-MAX_PER_PRED} more ${esc(pred)})</span>\n`;
       if(shown>=MAX_CURATED)break;
     }
-    if(total>MAX_CURATED)o+=`\n  <span class="dim">(showing top connections from ${Object.keys(pg).length} predicates — use ${cl('subgraph '+r+' --hops 1 --verbose')} for full list)</span>\n`;
+    if(total>MAX_CURATED)o+=`\n  <span class="dim">(showing top connections from ${Object.keys(pg).length} predicates — use ${cl('connections '+r)} to paginate all)</span>\n`;
   }
   const simNb=[];
   for(const e of EL){
@@ -350,10 +350,12 @@ function cmdNode(name){
       const nt=NM[nb]?NM[nb].type:'?';
       o+=`  ${w.toFixed(3)}  [${esc(nt).padEnd(12)}] ${nl(nb)}\n`;
     }
-    pagState={node:r,page:1,total:simNb.length};
+    pagState={node:r,page:1,total:simNb.length,type:'similar'};
   }
+  const totalCurated=Object.values(pg).reduce((s,v)=>s+v.length,0);
   o+='\n--- NAVIGATION ---\n';
   if(Object.keys(pg).length){const fn=Object.values(pg)[0][0].nb;o+=`  Follow a connection?          → ${cl('node '+fn)}\n`;}
+  if(totalCurated>25)o+=`  All connections (paginated)?  → ${cl('connections '+r)}\n`;
   if(simNb.length>10){
     o+=`  More similar nodes?           → ${cl('next')}\n`;
     o+=`  Jump to page?                 → ${cl('similar '+r+' 2','similar '+r+' <page>')}\n`;
@@ -389,7 +391,7 @@ function cmdSimilar(name,page){
   if(page<1)page=1;if(page>totalPages)page=totalPages;
   const start=(page-1)*PAGE_SIZE;const end=Math.min(start+PAGE_SIZE,total);
   const shown=simNb.slice(start,end);
-  pagState={node:r,page,total};
+  pagState={node:r,page,total,type:'similar'};
   let o='';o+=HR();
   o+=`<span class="hdr">SIMILAR NODES: ${nl(r)}</span>\n`;
   o+=`  page ${page} of ${totalPages} (${start+1}-${end} of ${total})\n`;
@@ -411,18 +413,53 @@ function cmdSimilar(name,page){
 
 function cmdNext(){
   if(!pagState)return{html:`Nothing to page through. Use '${cl('node <name>','node ...')}' first to view a node's similar nodes.\n`,hl:[]};
-  const{node,page,total}=pagState;
+  const{node,page,total,type}=pagState;
   const PAGE_SIZE=10;
   const totalPages=Math.ceil(total/PAGE_SIZE);
   const nextPage=page+1;
   if(nextPage>totalPages){
+    const cmd=type==='connections'?'connections':'similar';
     let o=`Already at last page (${page} of ${totalPages}) for: ${nl(node)}\n`;
     o+='\n--- NAVIGATION ---\n';
-    o+=`  Back to page 1?               → ${cl('similar '+node+' 1')}\n`;
+    o+=`  Back to page 1?               → ${cl(cmd+' '+node+' 1')}\n`;
     o+=`  Back to node detail?          → ${cl('node '+node)}\n`;
     return{html:o,hl:[]};
   }
+  if(type==='connections')return cmdConnections(node,nextPage);
   return cmdSimilar(node,nextPage);
+}
+
+function cmdConnections(name,page){
+  const r=resolve(name);
+  if(!r)return{html:`Error: no node matching '${esc(name)}'\n  Try: ${cl('search '+name)}\n`,hl:[]};
+  const allConn=[];
+  for(const e of EL){
+    if(e.predicate==='cosine_similarity')continue;
+    if(e.source===r)allConn.push({pred:e.predicate,dir:'→',nb:e.target});
+    else if(e.target===r)allConn.push({pred:e.predicate,dir:'←',nb:e.source});
+  }
+  allConn.sort((a,b)=>a.pred.localeCompare(b.pred)||a.nb.localeCompare(b.nb));
+  if(!allConn.length)return{html:`No curated connections for '${esc(r)}'.\n\n--- NAVIGATION ---\n  Back to node detail?          → ${cl('node '+r)}\n  Back to home?                 → ${cl('explore')}\n`,hl:[]};
+  const PAGE_SIZE=10;
+  const total=allConn.length;
+  const totalPages=Math.ceil(total/PAGE_SIZE);
+  if(page<1)page=1;if(page>totalPages)page=totalPages;
+  const start=(page-1)*PAGE_SIZE;const end=Math.min(start+PAGE_SIZE,total);
+  const shown=allConn.slice(start,end);
+  pagState={node:r,page,total,type:'connections'};
+  let o='';o+=HR();
+  o+=`<span class="hdr">CONNECTIONS: ${nl(r)}</span>\n`;
+  o+=`  page ${page} of ${totalPages} (${start+1}-${end} of ${total})\n`;
+  o+=HR()+'\n';
+  for(const{pred,dir,nb}of shown)o+=`  ${dir} ${esc(pred)}: ${nl(nb)}\n`;
+  o+='\n--- NAVIGATION ---\n';
+  if(page<totalPages)o+=`  Next page?                    → ${cl('next')}\n`;
+  if(page>1)o+=`  Previous page?                → ${cl('connections '+r+' '+(page-1))}\n`;
+  if(page<totalPages)o+=`  Jump to page?                 → ${cl('connections '+r+' '+(page+1),'connections '+r+' <page>')}\n`;
+  o+=`  Inspect a node?               → ${cl('node '+shown[0].nb,'node ...')}\n`;
+  o+=`  Back to node detail?          → ${cl('node '+r)}\n`;
+  o+=`  Back to home?                 → ${cl('explore')}\n`;
+  return{html:o,hl:[r,...shown.map(x=>x.nb)]};
 }
 
 function cmdSubgraph(args){
@@ -765,6 +802,7 @@ function run(input){
       case'community':if(!rest.length){result={html:'Usage: community <id> [--origin <name>]\n',hl:[]};}else result=cmdCommunity(rest[0],origin,type);break;
       case'node':if(!rest.length){result={html:'Usage: node <name>\n',hl:[]};}else result=cmdNode(rest.join(' '));break;
       case'similar':{if(!rest.length){result={html:'Usage: similar <name> [page]\n',hl:[]};break;}let pg=1;if(rest.length>1&&/^\d+$/.test(rest[rest.length-1])){pg=parseInt(rest.pop());}result=cmdSimilar(rest.join(' '),pg);break;}
+      case'connections':{if(!rest.length){result={html:'Usage: connections <name> [page]\n',hl:[]};break;}let pg=1;if(rest.length>1&&/^\d+$/.test(rest[rest.length-1])){pg=parseInt(rest.pop());}result=cmdConnections(rest.join(' '),pg);break;}
       case'next':result=cmdNext();break;
       case'subgraph':result=cmdSubgraph(rawArgs);break;
       case'search':if(!rest.length){result={html:'Usage: search <query> [--origin <name>] [--type <type>]\n',hl:[]};}else result=cmdSearch(rest.join(' '),origin,type);break;
