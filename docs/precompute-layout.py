@@ -15,16 +15,15 @@ G = nx.Graph()
 for node in data["nodes"]:
     G.add_node(node["id"])
 
-# Only use curated+structural edges for layout (matching explorer.html which skips cosine_similarity)
+# Use ALL edges for layout (cosine pulls similar nodes together visually)
 for edge in data["edges"]:
-    if edge.get("predicate") == "cosine_similarity":
-        continue
+    w = edge.get("weight", 0.5)
     if edge["source"] in G and edge["target"] in G:
-        G.add_edge(edge["source"], edge["target"])
+        G.add_edge(edge["source"], edge["target"], weight=w)
 
 print(f"Layout: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
-pos = nx.spring_layout(G, k=0.15, iterations=200, seed=42, scale=500)
+pos = nx.spring_layout(G, k=0.08, iterations=300, seed=42, scale=500, weight="weight")
 
 for node in data["nodes"]:
     nid = node["id"]
