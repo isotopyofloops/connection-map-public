@@ -53,6 +53,8 @@ def cosine_similarity_matrix(mat):
     normed = mat / norms
     return normed @ normed.T
 
+CACHE_PATH = Path(__file__).parent / "all-embeddings.json"
+
 def main():
     with open(GRAPH_PATH) as f:
         graph = json.load(f)
@@ -60,10 +62,25 @@ def main():
     nodes = graph["nodes"]
     print(f"Loaded {len(nodes)} nodes")
 
-    # Embed all summaries
-    client = get_openai_client()
-    print("Embedding all node summaries...")
-    embeddings = embed_summaries(nodes, client)
+    # Check cache
+    cache = {}
+    if CACHE_PATH.exists():
+        cache = json.loads(CACHE_PATH.read_text())
+        print(f"Loaded {len(cache)} cached embeddings")
+
+    missing = [n for n in nodes if n["id"] not in cache]
+    if missing:
+        print(f"Embedding {len(missing)} nodes ({len(nodes) - len(missing)} cached)...")
+        client = get_openai_client()
+        new_embs = embed_summaries(missing, client)
+        for i, n in enumerate(missing):
+            cache[n["id"]] = new_embs[i].tolist() if hasattr(new_embs[i], 'tolist') else new_embs[i]
+        CACHE_PATH.write_text(json.dumps(cache))
+        print(f"Cache updated: {len(cache)} total embeddings")
+    else:
+        print("All nodes cached, skipping API calls")
+
+    embeddings = np.array([cache[n["id"]] for n in nodes])
     print(f"Got {embeddings.shape[0]} embeddings of dimension {embeddings.shape[1]}")
 
     # Compute pairwise similarity
@@ -82,16 +99,23 @@ def main():
                 id_j = nodes[j]["id"].lower()
                 if id_i in id_j or id_j in id_i:
                     continue
+                src_o = nodes[i].get("origin", "?")
+                tgt_o = nodes[j].get("origin", "?")
+                if isinstance(src_o, list): src_o = tuple(sorted(src_o))
+                if isinstance(tgt_o, list): tgt_o = tuple(sorted(tgt_o))
                 new_cos_edges.append({
                     "source": nodes[i]["id"],
                     "target": nodes[j]["id"],
                     "predicate": "cosine_similarity",
                     "weight": round(score, 4),
-                    "edge_type": "computed"
+                    "edge_type": "computed",
+                    "cross_agent": src_o != tgt_o
                 })
 
     # Count by agent pair
-    origin_map = {n["id"]: n.get("origin", "?") for n in nodes}
+    def origin_str(o):
+        return "+".join(sorted(o)) if isinstance(o, list) else (o or "?")
+    origin_map = {n["id"]: origin_str(n.get("origin", "?")) for n in nodes}
     from collections import Counter
     pair_counts = Counter()
     for e in new_cos_edges:
@@ -116,7 +140,7 @@ def main():
 
     # Write back
     with open(GRAPH_PATH, "w") as f:
-        json.dump(graph, f, indent=2)
+        json.dump(graph, f, separators=(",", ":"))
     print(f"Written to {GRAPH_PATH}")
 
 if __name__ == "__main__":
