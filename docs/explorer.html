@@ -852,7 +852,8 @@ function initGraph(){
   }
   const elements=[];
   for(const[id,n]of Object.entries(NM)){
-    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)}});
+    const pos=(n.x!==undefined&&n.y!==undefined)?{x:n.x,y:n.y}:undefined;
+    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)},position:pos});
   }
   for(const e of EL){
     if(e.predicate==='cosine_similarity')continue;
@@ -873,7 +874,8 @@ function initGraph(){
       {selector:'node.hl',style:{opacity:1,'border-width':2,'border-color':'#ffffff'}},
       {selector:'edge.hl',style:{opacity:0.8,width:2}},
     ],
-    layout:{name:'cose',animate:false,nodeRepulsion:function(){return 500000;},idealEdgeLength:function(){return 90;},
+    layout:elements.every(e=>e.position||e.data.source)?{name:'preset',fit:true,padding:30}:
+      {name:'cose',animate:false,nodeRepulsion:function(){return 500000;},idealEdgeLength:function(){return 90;},
       gravity:0.4,numIter:300,randomize:true,fit:true,padding:30},
     minZoom:0.05,maxZoom:5,
     wheelSensitivity:0.3,
