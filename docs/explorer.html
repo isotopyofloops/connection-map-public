@@ -647,12 +647,14 @@ function cmdSurprise(name){
   const cid=NC[r];
   let o='';o+=HR();o+=`<span class="hdr">SURPRISE: ${nl(r)}</span>\n`;o+=HR();
   o+=`\n  node: ${nl(r)} (${esc(NM[r].type)}, C${cid??'?'})\n`;
+  const summ=NM[r].summary;if(summ)o+=`  ${esc(summ.length>120?summ.slice(0,117)+'...':summ)}\n`;
   o+=`  curated neighbors: ${Object.keys(cn).length}\n  with similarity score: ${ws.length}\n`;
   if(ws.length){
     o+='\n--- UNEXPECTED CONNECTIONS (curated edge + low similarity) ---\n\n';
     for(const{nb,s,preds}of ws.slice(0,10)){
       const nt=NM[nb]?NM[nb].type:'?';const nc=NC[nb];
       o+=`  ${s.toFixed(3)}  [${esc(nt)}] ${nl(nb)}  C${nc??'?'}\n`;
+      const nbs=NM[nb]&&NM[nb].summary;if(nbs)o+=`         ${esc(nbs.length>100?nbs.slice(0,97)+'...':nbs)}\n`;
       for(const p of preds.slice(0,3))o+=`         ${esc(p)}\n`;
     }
   }else{
@@ -663,7 +665,7 @@ function cmdSurprise(name){
     o+=`\n--- NO SIMILARITY SCORE (${wos.length} curated neighbors) ---\n\n`;
     for(const{nb,preds}of wos.slice(0,5)){
       const nt=NM[nb]?NM[nb].type:'?';
-      o+=`  [${esc(nt)}] ${nl(nb)}\n`;for(const p of preds.slice(0,2))o+=`         ${esc(p)}\n`;
+      o+=`  [${esc(nt)}] ${nl(nb)}\n`;const wss=NM[nb]&&NM[nb].summary;if(wss)o+=`         ${esc(wss.length>100?wss.slice(0,97)+'...':wss)}\n`;for(const p of preds.slice(0,2))o+=`         ${esc(p)}\n`;
     }
     if(wos.length>5)o+=`  ... and ${wos.length-5} more\n`;
   }
@@ -672,6 +674,7 @@ function cmdSurprise(name){
     for(const{nb,s}of hsne.slice(0,10)){
       const nt=NM[nb]?NM[nb].type:'?';const nc=NC[nb];
       o+=`  ${s.toFixed(3)}  [${esc(nt)}] ${nl(nb)}  C${nc??'?'}\n`;
+      const hss=NM[nb]&&NM[nb].summary;if(hss)o+=`         ${esc(hss.length>100?hss.slice(0,97)+'...':hss)}\n`;
     }
   }
   const origins=olist(NM[r]);

@@ -1040,6 +1040,9 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
     print(f"SURPRISE: {resolved}")
     print("=" * 60)
     print(f"\n  node: {resolved} ({nodes[resolved].get('type','?')}, C{cid})")
+    summ = nodes[resolved].get("summary", "")
+    if summ:
+        print(f"  {summ[:120]}")
     print(f"  curated neighbors: {len(curated_neighbors)}")
     print(f"  with similarity score: {len(with_sim)}")
 
@@ -1049,6 +1052,9 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
             nb_type = nodes[nb]["type"] if nb in nodes else "?"
             nb_cid = node_community.get(nb, "?") if node_community else "?"
             print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
+            nbs = nodes[nb].get("summary", "") if nb in nodes else ""
+            if nbs:
+                print(f"         {nbs[:100]}")
             for p in preds[:3]:
                 print(f"         {p}")
     else:
@@ -1064,6 +1070,9 @@ def cmd_surprise(name, nodes, adj, edges, node_community=None):
             nb_type = nodes[nb]["type"] if nb in nodes else "?"
             nb_cid = node_community.get(nb, "?") if node_community else "?"
             print(f"  {s:.3f}  [{nb_type}] {nb}  C{nb_cid}")
+            hss = nodes[nb].get("summary", "") if nb in nodes else ""
+            if hss:
+                print(f"         {hss[:100]}")
 
     origins = origin_list(nodes[resolved])
     print(f"\n--- NAVIGATION ---")
