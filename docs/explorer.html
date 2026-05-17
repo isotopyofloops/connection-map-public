@@ -73,6 +73,18 @@ body {
   background: rgba(8,8,16,0.9); border: 1px solid rgba(100,200,255,0.1);
   border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #556; z-index: 5;
 }
+#graph-loading {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  background: rgba(10,10,20,0.95); z-index: 10; gap: 12px;
+}
+#graph-loading .spinner {
+  width: 24px; height: 24px; border: 2px solid rgba(100,200,255,0.2);
+  border-top-color: #55ccff; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#graph-loading .label { color: #556; font-size: 11px; }
 #text-panel::-webkit-scrollbar { width: 6px; }
 #text-panel::-webkit-scrollbar-track { background: transparent; }
 #text-panel::-webkit-scrollbar-thumb { background: rgba(100,200,255,0.15); border-radius: 3px; }
@@ -98,6 +110,10 @@ body {
   <div id="text-panel"><div id="output"><span class="dim">Loading...</span></div></div>
   <div id="graph-panel">
     <div id="cy"></div>
+    <div id="graph-loading">
+      <div class="spinner"></div>
+      <div class="label">Run a command to load the graph</div>
+    </div>
     <div id="graph-legend">
       <div class="legend-item"><span class="ldot" style="background:#55ccff"></span> Loom</div>
       <div class="legend-item"><span class="ldot" style="background:#ff66aa"></span> Sammy</div>
@@ -850,10 +866,11 @@ function initGraph(){
   if(typeof cytoscape==='undefined'){
     document.getElementById('graph-info').textContent='Graph library not loaded';return;
   }
+  const loadingEl=document.getElementById('graph-loading');
+  loadingEl.querySelector('.label').textContent='Computing layout...';
   const elements=[];
   for(const[id,n]of Object.entries(NM)){
-    const pos=(n.x!==undefined&&n.y!==undefined)?{x:n.x,y:n.y}:undefined;
-    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)},position:pos});
+    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)}});
   }
   for(const e of EL){
     if(e.predicate==='cosine_similarity')continue;
@@ -874,9 +891,9 @@ function initGraph(){
       {selector:'node.hl',style:{opacity:1,'border-width':2,'border-color':'#ffffff'}},
       {selector:'edge.hl',style:{opacity:0.8,width:2}},
     ],
-    layout:elements.every(e=>e.position||e.data.source)?{name:'preset',fit:true,padding:30}:
-      {name:'cose',animate:false,nodeRepulsion:function(){return 500000;},idealEdgeLength:function(){return 90;},
-      gravity:0.4,numIter:300,randomize:true,fit:true,padding:30},
+    layout:{name:'cose',animate:false,nodeRepulsion:function(){return 500000;},idealEdgeLength:function(){return 90;},
+      gravity:0.4,numIter:300,randomize:true,fit:true,padding:30,
+      stop:function(){loadingEl.style.display='none';}},
     minZoom:0.05,maxZoom:5,
     wheelSensitivity:0.3,
   });
@@ -886,7 +903,11 @@ function initGraph(){
 }
 
 function highlightGraph(ids){
-  if(!cy)return;
+  if(!cy){
+    const gp=document.getElementById('graph-panel');
+    if(!gp.classList.contains('hidden'))initGraph();
+    if(!cy)return;
+  }
   cy.elements().removeClass('hl').removeClass('faded');
   if(!ids||!ids.length||ids.length>=Object.keys(NM).length*0.9){return;}
   const idSet=new Set(ids);
@@ -931,7 +952,6 @@ document.getElementById('vb-text').addEventListener('click',()=>setView('text'))
 (async function(){
   try{
     await loadData();
-    initGraph();
     run('explore');
   }catch(e){
     document.getElementById('output').innerHTML=`<span style="color:#e06c75">Error loading data: ${esc(e.message)}</span>`;
