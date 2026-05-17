@@ -1,1 +1,6 @@
 .explore-state.json
+docs/all-embeddings.json
+docs/skeleton-embeddings.json
+docs/lumen-embeddings.json
+.heartbeat
+heartbeat
