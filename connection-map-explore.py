@@ -84,13 +84,14 @@ def compute_communities(nodes, adj, edges, precomputed=None):
     for nid in nodes:
         G.add_node(nid)
     for e in edges:
+        if e.get("edge_type") != "computed":
+            continue
         w = e.get("weight", 1.0)
         if G.has_edge(e["source"], e["target"]):
             G[e["source"]][e["target"]]["weight"] += w
         else:
             G.add_edge(e["source"], e["target"], weight=w)
 
-    # Fallback only — precomputed communities are canonical. This may differ across networkx versions even with fixed seed.
     partition = community_louvain.best_partition(G, resolution=1.0, random_state=42)
 
     communities = defaultdict(list)
