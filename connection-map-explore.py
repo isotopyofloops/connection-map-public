@@ -354,15 +354,17 @@ def cmd_explore(nodes, adj, edges, community_data=None, origin=None, node_type=N
     print("\n--- NAVIGATION ---")
     print("  Looking for something?        → search <query>")
     print("  Browse by topic cluster?      → community <id>")
-    print("  How does X connect to Y?      → path <from> -- <to>")
-    print("  What's near X?                → subgraph <name> --hops 1")
     print("  Deep dive on one thing?       → node <name>")
+    print("  Pre-writing reference card?   → brief <name>")
+    print("  What's near X?                → subgraph <name> --hops 1")
+    print("  Unexpected connections?       → surprise <name>")
+    print("  How does X connect to Y?      → path <from> -- <to>")
+    print("  Concepts across sources?      → crossings")
+    print("  Timeline of a source?         → timeline <origin>")
+    print("  Compare two sources?          → overlap <origin1> <origin2>")
     print("  Filter by agent?              → explore --origin <name>")
     print("  Filter by node type?          → explore --type <type>")
-    if filtered:
-        print("  Clear filters?                → explore")
-    else:
-        print("  Back to this view?            → explore")
+    print("  All commands?                 → help")
 
 
 def cmd_community(cid_str, nodes, adj, edges, community_data=None, origin=None, node_type=None):
@@ -1551,13 +1553,13 @@ def cmd_jaccard(name, nodes, adj, edges, community_data=None):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help", "help"):
         print(__doc__.strip())
         return
 
     nodes, adj, edges, precomputed = load_graph()
     neighbor_index = build_neighbor_index(edges)
-    cmd = sys.argv[1]
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "explore"
     rest = sys.argv[2:]
     origin, node_type, full, rest = parse_flags(rest)
 
