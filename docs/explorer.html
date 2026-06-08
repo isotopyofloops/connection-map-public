@@ -115,9 +115,10 @@ body {
       <div class="label">Run a command to load the graph</div>
     </div>
     <div id="graph-legend">
-      <div class="legend-item"><span class="ldot" style="background:#55ccff"></span> Loom</div>
-      <div class="legend-item"><span class="ldot" style="background:#ff66aa"></span> Sammy</div>
-      <div class="legend-item"><span class="ldot" style="background:#aa77ff"></span> Isotopy</div>
+      <div style="font-size:9px;color:#556;margin-bottom:4px;">AGENTS (max 2)</div>
+      <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="agent-filter" value="isotopy" checked><span class="ldot" style="background:#aa77ff"></span> Isotopy</label></div>
+      <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="agent-filter" value="loom" checked><span class="ldot" style="background:#55ccff"></span> Loom</label></div>
+      <div class="legend-item"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="agent-filter" value="sammy"><span class="ldot" style="background:#ff66aa"></span> Sammy</label></div>
       <div class="legend-item"><span class="ldot" style="background:#55eecc"></span> Shared</div>
     </div>
     <div id="graph-info"></div>
@@ -133,6 +134,7 @@ const EC = {structural_isomorphism:'#e06c75',authored_by:'#55eecc',corresponds_w
   same_phenomenon:'rgba(180,190,210,0.45)',describes_mechanism_of:'rgba(180,190,210,0.45)'};
 
 let NM={}, adj={}, EL=[], comms={}, NC={}, cy=null, hist=[], hidx=-1, pagState=null;
+let visibleAgents=new Set(['isotopy','loom']);
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function oc(o){return Array.isArray(o)?SC:(OC[o]||SC);}
@@ -871,12 +873,19 @@ function initGraph(){
   }
   const loadingEl=document.getElementById('graph-loading');
   loadingEl.querySelector('.label').textContent='Computing layout...';
-  const elements=[];
+  const visNodes=new Set();
   for(const[id,n]of Object.entries(NM)){
-    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)}});
+    const origins=olist(n);
+    if(origins.some(o=>visibleAgents.has(o)))visNodes.add(id);
+  }
+  const elements=[];
+  for(const id of visNodes){
+    const n=NM[id];
+    elements.push({data:{id,label:id.length>25?id.slice(0,23)+'...':id,color:oc(n.origin),degree:deg(id)},position:{x:n.x||0,y:n.y||0}});
   }
   for(const e of EL){
     if(e.predicate==='cosine_similarity')continue;
+    if(!visNodes.has(e.source)||!visNodes.has(e.target))continue;
     const eid=e.source+'→'+e.target+'→'+e.predicate;
     elements.push({data:{id:eid,source:e.source,target:e.target,color:EC[e.predicate]||'rgba(180,190,210,0.3)'}});
   }
@@ -894,15 +903,36 @@ function initGraph(){
       {selector:'node.hl',style:{opacity:1,'border-width':2,'border-color':'#ffffff'}},
       {selector:'edge.hl',style:{opacity:0.8,width:2}},
     ],
-    layout:{name:'cose',animate:false,nodeRepulsion:function(){return 500000;},idealEdgeLength:function(){return 90;},
-      gravity:0.4,numIter:300,randomize:true,fit:true,padding:30,
-      stop:function(){loadingEl.style.display='none';}},
+    layout:{name:'preset',fit:true,padding:30,
+      stop:function(){
+        loadingEl.style.display='none';
+      }},
     minZoom:0.05,maxZoom:5,
     wheelSensitivity:0.3,
   });
   cy.on('tap','node',function(evt){run('node '+evt.target.id());});
   const nodeCount=cy.nodes().length;const edgeCount=cy.edges().length;
   document.getElementById('graph-info').textContent=`${nodeCount} nodes · ${edgeCount} curated edges`;
+}
+
+function applyAgentFilter(){
+  if(!cy)return;
+  cy.batch(()=>{
+    cy.nodes().forEach(n=>{
+      const node=NM[n.id()];
+      if(!node)return;
+      const origins=olist(node);
+      const visible=origins.some(o=>visibleAgents.has(o));
+      n.style('display',visible?'element':'none');
+    });
+    cy.edges().forEach(e=>{
+      const sv=e.source().style('display')!=='none';
+      const tv=e.target().style('display')!=='none';
+      e.style('display',(sv&&tv)?'element':'none');
+    });
+  });
+  const vis=cy.nodes().filter(n=>n.style('display')!=='none');
+  document.getElementById('graph-info').textContent=`${vis.length} nodes · ${cy.edges().filter(e=>e.style('display')!=='none').length} curated edges`;
 }
 
 function highlightGraph(ids){
@@ -950,6 +980,17 @@ cmdInput.addEventListener('keydown',function(e){
 
 document.getElementById('vb-both').addEventListener('click',()=>setView('both'));
 document.getElementById('vb-text').addEventListener('click',()=>setView('text'));
+
+document.querySelectorAll('.agent-filter').forEach(cb=>{
+  cb.addEventListener('change',function(){
+    const checked=[...document.querySelectorAll('.agent-filter:checked')];
+    if(checked.length>2){this.checked=false;return;}
+    if(checked.length===0){this.checked=true;return;}
+    visibleAgents=new Set(checked.map(c=>c.value));
+    if(cy){cy.destroy();cy=null;}
+    initGraph();
+  });
+});
 
 // === INIT ===
 (async function(){
